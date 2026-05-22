@@ -216,7 +216,7 @@ const StatementView = ({ kind }: { kind: "invoice" | "estimate" }) => {
     );
   }
 
-  const openPay = (orderId: string) => navigate(`/ledger/${kind}/${partyId}/pay/${orderId}`);
+  const openPay = (orderId: string) => navigate(`/ledger/${kind}/${encodeURIComponent(partyId)}/pay/${orderId}`);
 
   return (
     <div className="space-y-4">
