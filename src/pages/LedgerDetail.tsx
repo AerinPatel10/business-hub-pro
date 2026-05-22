@@ -288,7 +288,7 @@ const StatementView = ({ kind }: { kind: "invoice" | "estimate" }) => {
                       {c?.txnId && (
                         <div className="flex gap-1 shrink-0">
                           {c.orderId && (
-                            <button onClick={() => navigate(`/ledger/${kind}/${partyId}/pay/${c.orderId}?edit=${c.txnId}`)} className="text-muted-foreground hover:text-foreground" aria-label="Edit">
+                            <button onClick={() => navigate(`/ledger/${kind}/${encodeURIComponent(partyId)}/pay/${c.orderId}?edit=${c.txnId}`)} className="text-muted-foreground hover:text-foreground" aria-label="Edit">
                               <Pencil className="h-3 w-3" />
                             </button>
                           )}
