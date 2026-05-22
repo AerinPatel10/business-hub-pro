@@ -44,7 +44,7 @@ const downloadCSV = (filename: string, header: string[], rows: (string | number)
 };
 
 const Reports = () => {
-  const { orders, parties, transactions } = useAppData();
+  const { orders, parties, transactions, profile } = useAppData();
   const [range, setRange] = useState<Range>("month");
   const [customFrom, setCustomFrom] = useState<string>(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [customTo, setCustomTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
