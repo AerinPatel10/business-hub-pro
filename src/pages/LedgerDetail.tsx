@@ -101,16 +101,36 @@ function buildStatement(
 }
 
 const StatementView = ({ kind }: { kind: "invoice" | "estimate" }) => {
-  const { partyId = "" } = useParams();
+  const { partyId: rawId = "" } = useParams();
+  const partyId = decodeURIComponent(rawId);
   const navigate = useNavigate();
   const { parties, orders, transactions, profile } = useAppData();
-  const party = parties.find((p) => p.id === partyId);
+
+  const isWalkin = partyId.startsWith("walkin:");
+  const walkinName = isWalkin ? partyId.slice("walkin:".length) : "";
+
+  const realParty = parties.find((p) => p.id === partyId);
+  const party = realParty ?? (isWalkin
+    ? { id: partyId, name: walkinName || "Walk-in Customer", opening_balance: 0, created_at: new Date().toISOString() }
+    : undefined);
 
   const partyOrders = useMemo(
-    () => orders.filter((o) => o.party_id === partyId && o.order_type === (kind === "invoice" ? "sale" : "estimate")),
-    [orders, partyId, kind]
+    () => orders.filter((o) => {
+      if (o.order_type !== (kind === "invoice" ? "sale" : "estimate")) return false;
+      if (isWalkin) {
+        const nm = (o.party_name?.trim() || "Walk-in Customer").toLowerCase();
+        return !o.party_id && nm === (walkinName || "walk-in customer").toLowerCase();
+      }
+      return o.party_id === partyId;
+    }),
+    [orders, partyId, kind, isWalkin, walkinName]
   );
-  const partyTxns = useMemo(() => transactions.filter((t) => t.party_id === partyId), [transactions, partyId]);
+  const partyTxns = useMemo(
+    () => transactions.filter((t) => isWalkin
+      ? !t.party_id && partyOrders.some(o => o.id === t.order_id)
+      : t.party_id === partyId),
+    [transactions, partyId, isWalkin, partyOrders]
+  );
 
   const { dbList, crList, ob, totalDebit, totalCredit } = useMemo(
     () => buildStatement(party, partyOrders, partyTxns, kind),
@@ -196,7 +216,7 @@ const StatementView = ({ kind }: { kind: "invoice" | "estimate" }) => {
     );
   }
 
-  const openPay = (orderId: string) => navigate(`/ledger/${kind}/${partyId}/pay/${orderId}`);
+  const openPay = (orderId: string) => navigate(`/ledger/${kind}/${encodeURIComponent(partyId)}/pay/${orderId}`);
 
   return (
     <div className="space-y-4">
@@ -268,7 +288,7 @@ const StatementView = ({ kind }: { kind: "invoice" | "estimate" }) => {
                       {c?.txnId && (
                         <div className="flex gap-1 shrink-0">
                           {c.orderId && (
-                            <button onClick={() => navigate(`/ledger/${kind}/${partyId}/pay/${c.orderId}?edit=${c.txnId}`)} className="text-muted-foreground hover:text-foreground" aria-label="Edit">
+                            <button onClick={() => navigate(`/ledger/${kind}/${encodeURIComponent(partyId)}/pay/${c.orderId}?edit=${c.txnId}`)} className="text-muted-foreground hover:text-foreground" aria-label="Edit">
                               <Pencil className="h-3 w-3" />
                             </button>
                           )}

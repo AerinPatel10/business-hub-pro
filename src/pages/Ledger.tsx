@@ -4,7 +4,7 @@ import { useAppData } from "@/contexts/AppDataContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronRight, FileText, FileSpreadsheet } from "lucide-react";
+import { Search, ChevronRight, FileText, FileSpreadsheet, UserPlus } from "lucide-react";
 import { inr } from "@/lib/format";
 
 const Ledger = () => {
@@ -21,26 +21,62 @@ const Ledger = () => {
   }, [params]);
 
   const partySummaries = useMemo(() => {
-    return parties.map((p) => {
-      const partyOrders = orders.filter((o) => o.party_id === p.id);
-      const invoices = partyOrders.filter((o) => o.order_type === "sale");
-      const estimates = partyOrders.filter((o) => o.order_type === "estimate");
+    type S = {
+      id: string;          // real party id OR "walkin:<name>"
+      name: string;
+      isWalkin: boolean;
+      invoiceCount: number;
+      invTotal: number;
+      invDue: number;
+      estimateCount: number;
+      estTotal: number;
+    };
+    const map = new Map<string, S>();
 
-      const invTotal = invoices.reduce((s, o) => s + Number(o.total), 0);
-      const invPaid = invoices.reduce((s, o) => s + Number(o.amount_paid), 0);
-      const invDue = Math.max(invTotal - invPaid, 0);
-
-      const estTotal = estimates.reduce((s, o) => s + Number(o.total), 0);
-
-      return {
-        party: p,
-        invoiceCount: invoices.length,
-        invTotal,
-        invDue,
-        estimateCount: estimates.length,
-        estTotal,
-      };
+    // Seed with real parties
+    parties.forEach((p) => {
+      map.set(p.id, {
+        id: p.id, name: p.name, isWalkin: false,
+        invoiceCount: 0, invTotal: 0, invDue: 0, estimateCount: 0, estTotal: 0,
+      });
     });
+
+    // Walk every order — including those without a saved party
+    orders.forEach((o) => {
+      let key: string;
+      let name: string;
+      let isWalkin = false;
+
+      if (o.party_id && map.has(o.party_id)) {
+        key = o.party_id;
+        name = map.get(o.party_id)!.name;
+      } else {
+        // Walk-in / un-added: group by name (case-insensitive)
+        name = (o.party_name?.trim() || "Walk-in Customer");
+        key = `walkin:${name.toLowerCase()}`;
+        isWalkin = true;
+        if (!map.has(key)) {
+          map.set(key, {
+            id: key, name, isWalkin: true,
+            invoiceCount: 0, invTotal: 0, invDue: 0, estimateCount: 0, estTotal: 0,
+          });
+        }
+      }
+
+      const s = map.get(key)!;
+      s.isWalkin = s.isWalkin || isWalkin;
+
+      if (o.order_type === "sale") {
+        s.invoiceCount += 1;
+        s.invTotal += Number(o.total);
+        s.invDue += Math.max(Number(o.total) - Number(o.amount_paid), 0);
+      } else if (o.order_type === "estimate") {
+        s.estimateCount += 1;
+        s.estTotal += Number(o.total);
+      }
+    });
+
+    return Array.from(map.values());
   }, [parties, orders]);
 
   const filtered = useMemo(() => {
@@ -48,12 +84,12 @@ const Ledger = () => {
     let list = partySummaries;
     if (tab === "invoice") list = list.filter((s) => s.invoiceCount > 0);
     else list = list.filter((s) => s.estimateCount > 0);
-    if (term) list = list.filter((s) => s.party.name.toLowerCase().includes(term));
-    return list.sort((a, b) => a.party.name.localeCompare(b.party.name));
+    if (term) list = list.filter((s) => s.name.toLowerCase().includes(term));
+    return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [partySummaries, tab, q]);
 
   const goTo = (partyId: string) => {
-    navigate(`/ledger/${tab}/${partyId}`);
+    navigate(`/ledger/${tab}/${encodeURIComponent(partyId)}`);
   };
 
   const handleTab = (v: string) => {
@@ -96,7 +132,9 @@ const Ledger = () => {
 };
 
 type Summary = {
-  party: { id: string; name: string };
+  id: string;
+  name: string;
+  isWalkin: boolean;
   invoiceCount: number;
   invTotal: number;
   invDue: number;
@@ -126,16 +164,23 @@ const PartyCardList = ({
     <div className="space-y-2">
       {list.map((s) => (
         <Card
-          key={s.party.id}
-          onClick={() => onClick(s.party.id)}
+          key={s.id}
+          onClick={() => onClick(s.id)}
           className="cursor-pointer hover:border-primary/50 active:scale-[0.99] transition"
         >
           <CardContent className="p-3 flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0">
-              {s.party.name.charAt(0).toUpperCase()}
+              {s.isWalkin ? <UserPlus className="h-4 w-4" /> : s.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-sm truncate">{s.party.name}</div>
+              <div className="font-semibold text-sm truncate flex items-center gap-2">
+                {s.name}
+                {s.isWalkin && (
+                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    walk-in
+                  </span>
+                )}
+              </div>
               {kind === "invoice" ? (
                 <div className="text-xs text-muted-foreground">
                   {s.invoiceCount} {s.invoiceCount === 1 ? "bill" : "bills"} · Total {inr(s.invTotal)}
