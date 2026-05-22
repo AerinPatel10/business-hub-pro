@@ -764,6 +764,35 @@ const Reports = () => {
             )}
           </Card>
         </TabsContent>
+
+        {/* SALE / ESTIMATE REPORT (printable, like the reference image) */}
+        <TabsList className="w-full grid grid-cols-2 h-auto mt-2">
+          <TabsTrigger value="saleReport" className="text-xs">Sale Report (PDF)</TabsTrigger>
+          <TabsTrigger value="estimateReport" className="text-xs">Estimate Report (PDF)</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="saleReport" className="mt-4">
+          <PrintableReport
+            kind="sale"
+            orders={filteredSales}
+            items={allItems}
+            transactions={transactions}
+            profile={profile}
+            from={start}
+            to={end ?? new Date()}
+          />
+        </TabsContent>
+        <TabsContent value="estimateReport" className="mt-4">
+          <PrintableReport
+            kind="estimate"
+            orders={filteredEstimates}
+            items={allItems}
+            transactions={transactions}
+            profile={profile}
+            from={start}
+            to={end ?? new Date()}
+          />
+        </TabsContent>
       </Tabs>
 
       <Button variant="outline" onClick={exportBackup} className="w-full h-12">
