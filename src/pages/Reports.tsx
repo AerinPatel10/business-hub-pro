@@ -802,4 +802,327 @@ const Reports = () => {
   );
 };
 
+// =====================================================================
+// PrintableReport — on-screen preview + PDF download mirroring the
+// classic "Sale Report" / "Estimate Report" layout (per-bill block with
+// nested item table, totals, sub-total and round-off).
+// =====================================================================
+type PrintOrder = {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  party_name: string | null;
+  party_gstin: string | null;
+  total: number | string;
+  amount_paid: number | string;
+  subtotal: number | string;
+  cgst: number | string;
+  sgst: number | string;
+  igst: number | string;
+};
+
+const ddmmyy = (s: string) => {
+  const d = new Date(s);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+};
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+const PrintableReport = ({
+  kind, orders, items, transactions, profile, from, to,
+}: {
+  kind: "sale" | "estimate";
+  orders: PrintOrder[];
+  items: OrderItem[];
+  transactions: { order_id: string | null; payment_method: string | null; amount: number | string; type: string }[];
+  profile: { business_name?: string | null; address?: string | null; phone?: string | null; email?: string | null; gstin?: string | null; state?: string | null } | null;
+  from: Date;
+  to: Date;
+}) => {
+  const title = kind === "sale" ? "Sale Report" : "Estimate Report";
+  const sectionLabel = kind === "sale" ? "Sale" : "Estimate";
+
+  // Sort by date asc to match the image's chronological feel (image is desc — keep desc to match)
+  const sorted = [...orders].sort((a, b) => new Date(b.invoice_date).getTime() - new Date(a.invoice_date).getTime());
+
+  const itemsByOrder = new Map<string, OrderItem[]>();
+  items.forEach((it) => {
+    if (!itemsByOrder.has(it.order_id)) itemsByOrder.set(it.order_id, []);
+    itemsByOrder.get(it.order_id)!.push(it);
+  });
+
+  const paymentFor = (orderId: string) => {
+    const t = transactions.find((x) => x.order_id === orderId && x.type === "credit");
+    return t?.payment_method ?? "Cash";
+  };
+
+  const generatePdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();
+    const M = 28;
+
+    // Business header
+    let y = 32;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+    doc.text(profile?.business_name || "Business", W / 2, y, { align: "center" }); y += 14;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+    const addrLine = [
+      profile?.address ? `Address: ${profile.address}` : "",
+      profile?.phone ? `Ph. no.: ${profile.phone}` : "",
+    ].filter(Boolean).join(", ");
+    if (addrLine) { doc.text(addrLine, W / 2, y, { align: "center" }); y += 11; }
+    if (profile?.email) { doc.text(`Email: ${profile.email}`, W / 2, y, { align: "center" }); y += 11; }
+    const gstLine = [
+      profile?.gstin ? `GSTIN: ${profile.gstin}` : "",
+      profile?.state ? `State: ${profile.state}` : "",
+    ].filter(Boolean).join(", ");
+    if (gstLine) { doc.text(gstLine, W / 2, y, { align: "center" }); y += 14; }
+
+    // Title
+    doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+    doc.text(title, W / 2, y, { align: "center" });
+    const tw = doc.getTextWidth(title);
+    doc.setLineWidth(0.6);
+    doc.line(W / 2 - tw / 2, y + 2, W / 2 + tw / 2, y + 2);
+    y += 16;
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text(`Duration: From ${ddmmyy(from.toISOString())} to ${ddmmyy(to.toISOString())}`, M, y);
+    y += 12;
+
+    // Section label
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+    doc.text(sectionLabel, W / 2, y, { align: "center" });
+    const sw = doc.getTextWidth(sectionLabel);
+    doc.line(W / 2 - sw / 2, y + 2, W / 2 + sw / 2, y + 2);
+    y += 8;
+
+    const headHeader = [["Date", "Order No", "Ref No", "Party Name", "Party's GSTIN No.", "Txn Type", "Total Amount", "Payment Type", "Received/Paid Amount", "Balance Amount"]];
+
+    sorted.forEach((o) => {
+      const its = itemsByOrder.get(o.id) ?? [];
+      const total = Number(o.total);
+      const paid = Number(o.amount_paid);
+      const balance = round2(total - paid);
+      const subtotal = its.reduce((s, it) => s + Number(it.taxable_amount) + Number(it.tax_amount), 0);
+      const roundOff = round2(total - subtotal);
+      const qtyTotal = its.reduce((s, it) => s + Number(it.quantity), 0);
+      const gstTotal = its.reduce((s, it) => s + Number(it.tax_amount), 0);
+
+      // Header row (each bill)
+      autoTable(doc, {
+        startY: y,
+        margin: { left: M, right: M },
+        head: headHeader,
+        body: [[
+          ddmmyy(o.invoice_date),
+          o.invoice_number,
+          "",
+          o.party_name || "Walk-in",
+          o.party_gstin || "—",
+          kind === "sale" ? "Sale" : "Estimate",
+          total.toFixed(2),
+          paymentFor(o.id),
+          paid.toFixed(2),
+          balance.toFixed(2),
+        ]],
+        theme: "grid",
+        styles: { fontSize: 8, lineColor: [80, 80, 80], lineWidth: 0.3, cellPadding: 3 },
+        headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: "bold", fontSize: 8 },
+        columnStyles: {
+          6: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" },
+        },
+      });
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+      // Items sub-table
+      const itemRows = its.map((it, i) => [
+        String(i + 1),
+        it.product_name,
+        it.hsn_code ?? "—",
+        `${Number(it.quantity)}`,
+        Number(it.price).toFixed(2),
+        `${Number(it.tax_amount).toFixed(2)} (${Number(it.gst_rate)}%)`,
+        Number(it.total).toFixed(2),
+      ]);
+
+      itemRows.push([
+        "", "Total", "", String(qtyTotal), "", gstTotal.toFixed(2), subtotal.toFixed(2),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: M + 80, right: M },
+        head: [["#", "Item name", "HSN/SAC", "Quantity", "Price/unit", "GST", "Amount"]],
+        body: itemRows,
+        theme: "grid",
+        styles: { fontSize: 8, lineColor: [80, 80, 80], lineWidth: 0.3, cellPadding: 3 },
+        headStyles: { fillColor: [250, 250, 250], textColor: 0, fontStyle: "bold", fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 22, halign: "center" },
+          3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" },
+        },
+      });
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+      // Sub Total + Round off
+      autoTable(doc, {
+        startY: y,
+        margin: { left: M + 80, right: M },
+        body: [
+          ["Sub Total", subtotal.toFixed(2)],
+          ["Round off", (roundOff >= 0 ? "" : "- ") + Math.abs(roundOff).toFixed(2)],
+        ],
+        theme: "plain",
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: {
+          0: { halign: "right", fontStyle: "bold" },
+          1: { halign: "right" },
+        },
+      });
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+      if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 32; }
+    });
+
+    doc.save(`${title.replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
+  if (sorted.length === 0) {
+    return (
+      <Card className="card-elevated p-6 text-sm text-muted-foreground text-center">
+        No {kind === "sale" ? "invoices" : "estimates"} in this date range.
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="card-elevated p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <div className="text-sm font-display font-bold">{title}</div>
+          <div className="text-xs text-muted-foreground">
+            Duration: From {ddmmyy(from.toISOString())} to {ddmmyy(to.toISOString())} · {sorted.length} {kind === "sale" ? "bill" : "estimate"}{sorted.length === 1 ? "" : "s"}
+          </div>
+        </div>
+        <Button onClick={generatePdf} size="sm" className="h-9">
+          <FileText className="h-3.5 w-3.5 mr-1.5" /> Download PDF
+        </Button>
+      </div>
+
+      {/* Preview header */}
+      <div className="text-center border-b pb-3">
+        <div className="font-display text-base font-bold">{profile?.business_name || "Business"}</div>
+        {profile?.address && <div className="text-[10px] text-muted-foreground">Address: {profile.address}{profile.phone ? `, Ph. no.: ${profile.phone}` : ""}</div>}
+        {profile?.email && <div className="text-[10px] text-muted-foreground">Email: {profile.email}</div>}
+        {(profile?.gstin || profile?.state) && (
+          <div className="text-[10px] text-muted-foreground">
+            {profile?.gstin && `GSTIN: ${profile.gstin}`}{profile?.state ? `, State: ${profile.state}` : ""}
+          </div>
+        )}
+        <div className="font-bold underline mt-2 text-sm">{title}</div>
+      </div>
+
+      <div className="text-xs font-semibold">
+        Duration: From {ddmmyy(from.toISOString())} to {ddmmyy(to.toISOString())}
+      </div>
+      <div className="text-center font-bold text-sm underline">{sectionLabel}</div>
+
+      <div className="space-y-4 overflow-x-auto">
+        {sorted.map((o) => {
+          const its = itemsByOrder.get(o.id) ?? [];
+          const total = Number(o.total);
+          const paid = Number(o.amount_paid);
+          const balance = round2(total - paid);
+          const subtotal = its.reduce((s, it) => s + Number(it.taxable_amount) + Number(it.tax_amount), 0);
+          const roundOff = round2(total - subtotal);
+          const qtyTotal = its.reduce((s, it) => s + Number(it.quantity), 0);
+          const gstTotal = its.reduce((s, it) => s + Number(it.tax_amount), 0);
+
+          return (
+            <div key={o.id} className="min-w-[900px]">
+              <table className="w-full text-[10px] border-collapse">
+                <thead className="bg-muted/40">
+                  <tr className="text-left">
+                    <th className="border px-1.5 py-1">Date</th>
+                    <th className="border px-1.5 py-1">Order No</th>
+                    <th className="border px-1.5 py-1">Ref No</th>
+                    <th className="border px-1.5 py-1">Party Name</th>
+                    <th className="border px-1.5 py-1">Party's GSTIN No.</th>
+                    <th className="border px-1.5 py-1">Txn Type</th>
+                    <th className="border px-1.5 py-1 text-right">Total Amount</th>
+                    <th className="border px-1.5 py-1">Payment Type</th>
+                    <th className="border px-1.5 py-1 text-right">Received/Paid Amount</th>
+                    <th className="border px-1.5 py-1 text-right">Balance Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border px-1.5 py-1">{ddmmyy(o.invoice_date)}</td>
+                    <td className="border px-1.5 py-1">{o.invoice_number}</td>
+                    <td className="border px-1.5 py-1">—</td>
+                    <td className="border px-1.5 py-1 font-semibold">{o.party_name || "Walk-in"}</td>
+                    <td className="border px-1.5 py-1">{o.party_gstin || "—"}</td>
+                    <td className="border px-1.5 py-1">{kind === "sale" ? "Sale" : "Estimate"}</td>
+                    <td className="border px-1.5 py-1 text-right">{inr(total)}</td>
+                    <td className="border px-1.5 py-1">{paymentFor(o.id)}</td>
+                    <td className="border px-1.5 py-1 text-right">{inr(paid)}</td>
+                    <td className="border px-1.5 py-1 text-right font-semibold">{inr(balance)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <table className="w-full text-[10px] border-collapse mt-1 ml-10">
+                <thead className="bg-muted/30">
+                  <tr className="text-left">
+                    <th className="border px-1.5 py-1 w-8 text-center">#</th>
+                    <th className="border px-1.5 py-1">Item name</th>
+                    <th className="border px-1.5 py-1">HSN/SAC</th>
+                    <th className="border px-1.5 py-1 text-right">Quantity</th>
+                    <th className="border px-1.5 py-1 text-right">Price/unit</th>
+                    <th className="border px-1.5 py-1 text-right">GST</th>
+                    <th className="border px-1.5 py-1 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {its.map((it, i) => (
+                    <tr key={it.id}>
+                      <td className="border px-1.5 py-1 text-center">{i + 1}</td>
+                      <td className="border px-1.5 py-1">{it.product_name}</td>
+                      <td className="border px-1.5 py-1">{it.hsn_code ?? "—"}</td>
+                      <td className="border px-1.5 py-1 text-right">{Number(it.quantity)}</td>
+                      <td className="border px-1.5 py-1 text-right">{inr(it.price)}</td>
+                      <td className="border px-1.5 py-1 text-right">{inr(it.tax_amount)} <span className="text-muted-foreground">({Number(it.gst_rate)}%)</span></td>
+                      <td className="border px-1.5 py-1 text-right">{inr(it.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-semibold bg-muted/20">
+                    <td className="border px-1.5 py-1"></td>
+                    <td className="border px-1.5 py-1">Total</td>
+                    <td className="border px-1.5 py-1"></td>
+                    <td className="border px-1.5 py-1 text-right">{qtyTotal}</td>
+                    <td className="border px-1.5 py-1"></td>
+                    <td className="border px-1.5 py-1 text-right">{inr(gstTotal)}</td>
+                    <td className="border px-1.5 py-1 text-right">{inr(subtotal)}</td>
+                  </tr>
+                  <tr>
+                    <td className="border-0 px-1.5 py-0.5" colSpan={5}></td>
+                    <td className="px-1.5 py-0.5 text-right font-semibold">Sub Total</td>
+                    <td className="px-1.5 py-0.5 text-right">{inr(subtotal)}</td>
+                  </tr>
+                  <tr>
+                    <td className="border-0 px-1.5 py-0.5" colSpan={5}></td>
+                    <td className="px-1.5 py-0.5 text-right font-semibold">Round off</td>
+                    <td className="px-1.5 py-0.5 text-right">{(roundOff < 0 ? "- " : "") + inr(Math.abs(roundOff))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+};
+
 export default Reports;
