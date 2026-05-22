@@ -9,8 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { inr } from "@/lib/format";
 import { startOfDay, endOfDay, startOfMonth, startOfYear, isAfter, isBefore, format, eachDayOfInterval, subDays, parseISO } from "date-fns";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Download, FileSpreadsheet, ChevronDown, ChevronRight, User } from "lucide-react";
+import { Download, FileSpreadsheet, ChevronDown, ChevronRight, User, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type Range = "today" | "month" | "year" | "all" | "custom";
 
