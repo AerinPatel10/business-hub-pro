@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VyaparBook — Professional, editorial-grade business UI
+   Palette: deep ink charcoal, paper-cream surface, rich emerald primary, antique-gold accent.
+   Typography: Montserrat throughout with tight tracking on display weights. */
+
+@layer base {
+  :root {
+    /* Surfaces — paper cream over deep ink */
+    --background: 40 30% 96%;
+    --foreground: 220 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 10%;
+
+    /* Primary — deep emerald (professional, financial) */
+    --primary: 165 75% 18%;
+    --primary-foreground: 40 30% 96%;
+    --primary-glow: 165 60% 32%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 25% 10%;
+
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 10% 42%;
+
+    /* Accent — antique gold */
+    --accent: 38 78% 50%;
+    --accent-foreground: 220 25% 10%;
+
+    --destructive: 358 70% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 35 90% 50%;
+    --warning-foreground: 220 25% 10%;
+
+    --success: 158 65% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --info: 210 70% 42%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 165 75% 18%;
+
+    --radius: 0.5rem;
+
+    /* Status pill colors */
+    --status-send: 210 70% 48%;
+    --status-processing: 38 90% 50%;
+    --status-dispatch: 265 60% 50%;
+    --status-sell: 158 60% 38%;
+    --status-done: 158 65% 28%;
+    --status-cancelled: 358 70% 50%;
+
+    /* Gradients — refined, editorial */
+    --gradient-primary: linear-gradient(135deg, hsl(165 75% 14%), hsl(165 60% 28%));
+    --gradient-accent: linear-gradient(135deg, hsl(38 78% 50%), hsl(28 80% 52%));
+    --gradient-ink: linear-gradient(180deg, hsl(220 25% 10%), hsl(220 28% 16%));
+    --gradient-paper: linear-gradient(180deg, hsl(40 30% 98%), hsl(40 22% 94%));
+
+    /* Shadows — crisp, layered */
+    --shadow-sm: 0 1px 2px hsl(220 25% 10% / 0.04);
+    --shadow-card: 0 1px 0 hsl(220 14% 88%), 0 8px 24px -12px hsl(220 25% 10% / 0.12);
+    --shadow-pop: 0 18px 40px -16px hsl(165 75% 18% / 0.45);
+    --shadow-ring: 0 0 0 1px hsl(220 14% 88%);
+
+    /* Sidebar */
+    --sidebar-background: 220 28% 12%;
+    --sidebar-foreground: 40 20% 92%;
+    --sidebar-primary: 38 78% 55%;
+    --sidebar-primary-foreground: 220 25% 10%;
+    --sidebar-accent: 220 25% 18%;
+    --sidebar-accent-foreground: 40 20% 92%;
+    --sidebar-border: 220 25% 20%;
+    --sidebar-ring: 38 78% 55%;
+  }
+
+  .dark {
+    --background: 220 28% 7%;
+    --foreground: 40 20% 94%;
+
+    --card: 220 28% 10%;
+    --card-foreground: 40 20% 94%;
+
+    --popover: 220 28% 10%;
+    --popover-foreground: 40 20% 94%;
+
+    --primary: 38 78% 55%;
+    --primary-foreground: 220 28% 7%;
+    --primary-glow: 38 85% 65%;
+
+    --secondary: 220 22% 16%;
+    --secondary-foreground: 40 20% 94%;
+
+    --muted: 220 22% 16%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 165 60% 42%;
+    --accent-foreground: 220 28% 7%;
+
+    --destructive: 358 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 90% 55%;
+    --warning-foreground: 220 28% 7%;
+
+    --success: 158 60% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --info: 210 70% 55%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 22% 20%;
+    --input: 220 22% 20%;
+    --ring: 38 78% 55%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  html { font-size: 17.5px; }
+  @media (min-width: 768px) { html { font-size: 18px; } }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11", "tnum";
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+    font-feature-settings: "ss01";
+  }
+
+  button, [role="button"] { touch-action: manipulation; }
+
+  /* Tabular numbers for money */
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider;
+  }
+
+  /* Editorial card — crisp 1px hairline + subtle lift */
+  .card-elevated {
+    @apply rounded-md bg-card border border-border;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Premium hero tile with gradient ink */
+  .stat-tile {
+    @apply rounded-md p-5 text-primary-foreground relative overflow-hidden;
+    background: var(--gradient-primary);
+    box-shadow: var(--shadow-pop);
+  }
+  .stat-tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 80% at 100% 0%, hsl(38 78% 55% / 0.18), transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Editorial section eyebrow */
+  .eyebrow {
+    @apply text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  /* Refined divider */
+  .hairline {
+    @apply h-px w-full bg-border;
+  }
+
+  /* Brand mark */
+  .brand-mark {
+    @apply inline-flex items-center justify-center rounded-sm font-display font-black tracking-tighter;
+    background: var(--gradient-ink);
+    color: hsl(var(--accent));
+    border: 1px solid hsl(220 25% 18%);
+  }
+
+  /* Premium button feel for primary actions */
+  .btn-premium {
+    background: var(--gradient-primary);
+    @apply text-primary-foreground rounded-md font-semibold tracking-wide;
+    box-shadow: var(--shadow-pop);
+  }
+
+  .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 5rem); }
+}
