@@ -31,8 +31,8 @@ const newLine = (): LineItem => ({
 });
 
 interface InvoiceNewProps {
-  /** "estimate" hides payment fields and saves with order_type='estimate'. */
-  mode?: "invoice" | "estimate";
+  /** "estimate" hides payment fields and saves with order_type='estimate'. "purchase" uses suppliers and saves with order_type='purchase'. */
+  mode?: "invoice" | "estimate" | "purchase";
 }
 
 const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
@@ -61,9 +61,11 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
   const [quickAddBusy, setQuickAddBusy] = useState(false);
 
   const isEstimate = mode === "estimate";
-  const docLabel = isEstimate ? "Estimate" : "Invoice";
+  const isPurchase = mode === "purchase";
+  const docLabel = isEstimate ? "Estimate" : isPurchase ? "Purchase" : "Invoice";
   const estimatePrefix = (settings as { estimate_prefix?: string } | null)?.estimate_prefix ?? "EST-";
   const nextEstimateNumber = (settings as { next_estimate_number?: number } | null)?.next_estimate_number ?? 1;
+  const purchasePrefix = "PUR-";
   const numberPrefix = isEstimate ? estimatePrefix : (settings?.invoice_prefix ?? "INV-");
 
   // Generate next number for new docs
@@ -71,11 +73,14 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
     if (settings && !isEdit) {
       if (isEstimate) {
         setInvoiceNumber(`${estimatePrefix}${String(nextEstimateNumber).padStart(4, "0")}`);
+      } else if (isPurchase) {
+        const purchaseCount = orders.filter(o => o.order_type === "purchase").length;
+        setInvoiceNumber(`${purchasePrefix}${String(purchaseCount + 1).padStart(4, "0")}`);
       } else {
         setInvoiceNumber(`${settings.invoice_prefix}${String(settings.next_invoice_number).padStart(4, "0")}`);
       }
     }
-  }, [settings, isEdit, isEstimate, estimatePrefix, nextEstimateNumber]);
+  }, [settings, isEdit, isEstimate, isPurchase, estimatePrefix, nextEstimateNumber, orders]);
 
   // Pre-fill party from ?partyId=... or ?walkin=Name (used when coming from a party page)
   useEffect(() => {
@@ -129,8 +134,8 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
 
   // Party autocomplete options (customers only)
   const partyOptions = useMemo(() => parties
-    .filter(p => p.type === "customer")
-    .map(p => ({ value: p.id, label: p.name, hint: p.phone ?? p.gstin ?? undefined })), [parties]);
+    .filter(p => isPurchase ? p.type === "supplier" : p.type === "customer")
+    .map(p => ({ value: p.id, label: p.name, hint: p.phone ?? p.gstin ?? undefined })), [parties, isPurchase]);
 
   const productOptions = useMemo(() => products.map(p => ({
     value: p.id, label: p.name, hint: inr(p.price),
@@ -242,7 +247,7 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
 
     const orderPayload = {
       invoice_number: invoiceNumber.trim(),
-      order_type: (isEstimate ? "estimate" : "sale") as "estimate" | "sale",
+      order_type: (isEstimate ? "estimate" : isPurchase ? "purchase" : "sale") as "estimate" | "sale" | "purchase",
       ...partyData,
       invoice_date: invoiceDate,
       is_interstate: isInterstate,
@@ -314,7 +319,7 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
     setBusy(false);
     toast.success(isEdit ? `${docLabel} updated` : `${docLabel} created`);
     await refresh();
-    navigate(isEstimate ? `/estimates/${orderId}` : `/invoices/${orderId}`);
+    navigate(isEstimate ? `/estimates/${orderId}` : isPurchase ? `/purchases/${orderId}` : `/invoices/${orderId}`);
   };
 
   return (
@@ -337,17 +342,19 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
         </div>
 
         <div>
-          <Label>Customer</Label>
+          <Label>{isPurchase ? "Supplier" : "Customer"}</Label>
           <Combobox
             value={partyName}
             onChange={text => { setPartyName(text); setPartyId(null); }}
             onPick={opt => { setPartyId(opt.value); setPartyName(opt.label); }}
             options={partyOptions}
-            placeholder="Type customer name…"
+            placeholder={isPurchase ? "Type supplier name…" : "Type customer name…"}
             inputClassName="h-12"
           />
           <p className="text-[10px] text-muted-foreground mt-1">
-            Type to search saved customers, or enter a new name for a walk-in.
+            {isPurchase
+              ? "Type to search saved suppliers, or enter a new name."
+              : "Type to search saved customers, or enter a new name for a walk-in."}
           </p>
         </div>
 
