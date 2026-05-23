@@ -30,14 +30,21 @@ const Ledger = () => {
       invDue: number;
       estimateCount: number;
       estTotal: number;
+      openingBalance: number;
     };
     const map = new Map<string, S>();
 
-    // Seed with real parties
+    // Seed with real parties — include opening_balance for both invoice & estimate views
     parties.forEach((p) => {
+      const ob = Number(p.opening_balance || 0);
       map.set(p.id, {
         id: p.id, name: p.name, isWalkin: false,
-        invoiceCount: 0, invTotal: 0, invDue: 0, estimateCount: 0, estTotal: 0,
+        invoiceCount: 0,
+        invTotal: ob > 0 ? ob : 0,
+        invDue: ob > 0 ? ob : 0,
+        estimateCount: 0,
+        estTotal: ob > 0 ? ob : 0,
+        openingBalance: ob,
       });
     });
 
@@ -59,6 +66,7 @@ const Ledger = () => {
           map.set(key, {
             id: key, name, isWalkin: true,
             invoiceCount: 0, invTotal: 0, invDue: 0, estimateCount: 0, estTotal: 0,
+            openingBalance: 0,
           });
         }
       }
@@ -82,8 +90,8 @@ const Ledger = () => {
   const filtered = useMemo(() => {
     const term = q.toLowerCase().trim();
     let list = partySummaries;
-    if (tab === "invoice") list = list.filter((s) => s.invoiceCount > 0);
-    else list = list.filter((s) => s.estimateCount > 0);
+    if (tab === "invoice") list = list.filter((s) => s.invoiceCount > 0 || s.openingBalance !== 0);
+    else list = list.filter((s) => s.estimateCount > 0 || s.openingBalance !== 0);
     if (term) list = list.filter((s) => s.name.toLowerCase().includes(term));
     return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [partySummaries, tab, q]);
@@ -140,6 +148,7 @@ type Summary = {
   invDue: number;
   estimateCount: number;
   estTotal: number;
+  openingBalance: number;
 };
 
 const PartyCardList = ({
@@ -184,10 +193,16 @@ const PartyCardList = ({
               {kind === "invoice" ? (
                 <div className="text-xs text-muted-foreground">
                   {s.invoiceCount} {s.invoiceCount === 1 ? "bill" : "bills"} · Total {inr(s.invTotal)}
+                  {s.openingBalance !== 0 && (
+                    <span className="ml-1">· OB {inr(Math.abs(s.openingBalance))} {s.openingBalance > 0 ? "Dr" : "Cr"}</span>
+                  )}
                 </div>
               ) : (
                 <div className="text-xs text-muted-foreground">
                   {s.estimateCount} {s.estimateCount === 1 ? "estimate" : "estimates"} · Total {inr(s.estTotal)}
+                  {s.openingBalance !== 0 && (
+                    <span className="ml-1">· OB {inr(Math.abs(s.openingBalance))}</span>
+                  )}
                 </div>
               )}
             </div>
