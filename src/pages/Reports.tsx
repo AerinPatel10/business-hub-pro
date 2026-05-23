@@ -20,12 +20,9 @@ interface LineRow {
   invoice: string;
   date: string;
   customer: string;
-  product: string;
-  hsn: string;
-  qty: string;
-  rate: number;
+  itemSummary: string;  // comma-joined product names (or count)
+  itemCount: number;
   taxable: number;
-  gstRate: number;
   gstAmt: number;
   total: number;
 }
@@ -139,37 +136,24 @@ const Reports = () => {
       g.totals.invoiceCount += 1;
 
       const its = itemsByOrder.get(o.id) ?? [];
-      if (its.length === 0) {
-        g.rows.push({
-          invoice: o.invoice_number,
-          date: format(new Date(o.invoice_date), "dd MMM yyyy"),
-          customer: name,
-          product: "—",
-          hsn: "—",
-          qty: "0",
-          rate: 0,
-          taxable: Number(o.subtotal),
-          gstRate: 0,
-          gstAmt: Number(o.cgst) + Number(o.sgst) + Number(o.igst),
-          total: Number(o.total),
-        });
-      } else {
-        its.forEach(it => {
-          g.rows.push({
-            invoice: o.invoice_number,
-            date: format(new Date(o.invoice_date), "dd MMM yyyy"),
-            customer: name,
-            product: it.product_name,
-            hsn: it.hsn_code ?? "—",
-            qty: `${it.quantity} ${it.unit ?? ""}`.trim(),
-            rate: Number(it.price),
-            taxable: Number(it.taxable_amount),
-            gstRate: Number(it.gst_rate),
-            gstAmt: Number(it.tax_amount),
-            total: Number(it.total),
-          });
-        });
-      }
+      const names = its.map(i => i.product_name).filter(Boolean);
+      const summary = names.length === 0
+        ? "—"
+        : names.length <= 2
+          ? names.join(", ")
+          : `${names.slice(0, 2).join(", ")} +${names.length - 2} more`;
+
+      g.rows.push({
+        invoice: o.invoice_number,
+        date: format(new Date(o.invoice_date), "dd MMM yyyy"),
+        customer: name,
+        itemSummary: summary,
+        itemCount: its.length,
+        taxable: Number(o.subtotal),
+        gstAmt: Number(o.cgst) + Number(o.sgst) + Number(o.igst),
+        total: Number(o.total),
+      });
+
       g.totals.taxable += Number(o.subtotal);
       g.totals.gst += Number(o.cgst) + Number(o.sgst) + Number(o.igst);
       g.totals.grand += Number(o.total);
@@ -301,9 +285,9 @@ const Reports = () => {
 
   const downloadCustomerCSV = (customerName: string, rows: LineRow[]) => {
     downloadCSV(`${customerName}-sales`,
-      ["Invoice No", "Date", "Customer", "Product", "HSN", "Qty", "Rate", "Taxable", "GST %", "GST Amount", "Total"],
-      rows.map(r => [r.invoice, r.date, r.customer, r.product, r.hsn, r.qty,
-        r.rate.toFixed(2), r.taxable.toFixed(2), `${r.gstRate}%`, r.gstAmt.toFixed(2), r.total.toFixed(2)]));
+      ["Invoice No", "Date", "Customer", "Items", "Item Count", "Taxable", "GST Amount", "Total"],
+      rows.map(r => [r.invoice, r.date, r.customer, r.itemSummary, r.itemCount,
+        r.taxable.toFixed(2), r.gstAmt.toFixed(2), r.total.toFixed(2)]));
   };
 
   const exportAllSalesCSV = () => {
@@ -481,15 +465,12 @@ const Reports = () => {
                       {isOpen && (
                         <div className="bg-card">
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs min-w-[700px]">
+                            <table className="w-full text-xs min-w-[560px]">
                               <thead className="bg-muted/40">
                                 <tr className="text-left">
                                   <th className="px-2 py-2 font-semibold">Invoice #</th>
                                   <th className="px-2 py-2 font-semibold">Date</th>
-                                  <th className="px-2 py-2 font-semibold">Product</th>
-                                  <th className="px-2 py-2 font-semibold">HSN</th>
-                                  <th className="px-2 py-2 font-semibold text-right">Qty</th>
-                                  <th className="px-2 py-2 font-semibold text-right">Rate</th>
+                                  <th className="px-2 py-2 font-semibold">Items</th>
                                   <th className="px-2 py-2 font-semibold text-right">Taxable</th>
                                   <th className="px-2 py-2 font-semibold text-right">GST</th>
                                   <th className="px-2 py-2 font-semibold text-right">Total</th>
@@ -500,19 +481,16 @@ const Reports = () => {
                                   <tr key={i} className="border-t border-border">
                                     <td className="px-2 py-2 font-semibold text-primary whitespace-nowrap">{r.invoice}</td>
                                     <td className="px-2 py-2 whitespace-nowrap">{r.date}</td>
-                                    <td className="px-2 py-2">{r.product}</td>
-                                    <td className="px-2 py-2">{r.hsn}</td>
-                                    <td className="px-2 py-2 text-right">{r.qty}</td>
-                                    <td className="px-2 py-2 text-right">{inr(r.rate)}</td>
+                                    <td className="px-2 py-2">{r.itemSummary} <span className="text-muted-foreground">({r.itemCount})</span></td>
                                     <td className="px-2 py-2 text-right">{inr(r.taxable)}</td>
-                                    <td className="px-2 py-2 text-right">{inr(r.gstAmt)} <span className="text-muted-foreground">({r.gstRate}%)</span></td>
+                                    <td className="px-2 py-2 text-right">{inr(r.gstAmt)}</td>
                                     <td className="px-2 py-2 text-right font-semibold">{inr(r.total)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                               <tfoot className="bg-muted/30 font-semibold">
                                 <tr className="border-t-2 border-border">
-                                  <td className="px-2 py-2" colSpan={6}>Total</td>
+                                  <td className="px-2 py-2" colSpan={3}>Total</td>
                                   <td className="px-2 py-2 text-right">{inr(g.totals.taxable)}</td>
                                   <td className="px-2 py-2 text-right">{inr(g.totals.gst)}</td>
                                   <td className="px-2 py-2 text-right">{inr(g.totals.grand)}</td>
