@@ -200,14 +200,14 @@ const Reports = () => {
       });
 
     transactions
-      .filter(t => t.party_id === statementPartyId)
+      .filter(t => t.party_id === statementPartyId && t.type === "credit")
       .forEach(t => {
         events.push({
           date: t.txn_date,
-          type: t.type === "credit" ? "Payment Received" : "Payment Made",
+          type: "Payment Received",
           ref: t.notes ?? t.payment_method ?? "—",
-          debit: t.type === "debit" ? Number(t.amount) : 0,
-          credit: t.type === "credit" ? Number(t.amount) : 0,
+          debit: 0,
+          credit: Number(t.amount),
         });
       });
 
