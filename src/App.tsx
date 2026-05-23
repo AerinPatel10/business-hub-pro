@@ -17,6 +17,9 @@ import InvoiceDetail from "./pages/InvoiceDetail";
 import { PartyList, PartyForm, PartyDetail } from "./pages/Parties";
 import EstimateList from "./pages/Estimates";
 import CustomerInvoices from "./pages/CustomerInvoices";
+import Expenses from "./pages/Expenses";
+import Purchases from "./pages/Purchases";
+import BalanceSheet from "./pages/BalanceSheet";
 
 import Reports from "./pages/Reports";
 import Ledger from "./pages/Ledger";
@@ -59,7 +62,13 @@ const App = () => (
             <Route path="/parties/new" element={<ProtectedShell><PartyForm /></ProtectedShell>} />
             <Route path="/parties/:id" element={<ProtectedShell><PartyDetail /></ProtectedShell>} />
             <Route path="/parties/:id/edit" element={<ProtectedShell><PartyForm /></ProtectedShell>} />
-            
+            <Route path="/expenses" element={<ProtectedShell><Expenses /></ProtectedShell>} />
+            <Route path="/purchases" element={<ProtectedShell><Purchases /></ProtectedShell>} />
+            <Route path="/purchases/new" element={<ProtectedShell><InvoiceNew mode="purchase" /></ProtectedShell>} />
+            <Route path="/purchases/:id/edit" element={<ProtectedShell><InvoiceNew mode="purchase" /></ProtectedShell>} />
+            <Route path="/purchases/:id" element={<ProtectedShell><InvoiceDetail /></ProtectedShell>} />
+            <Route path="/balance-sheet" element={<ProtectedShell><BalanceSheet /></ProtectedShell>} />
+
             <Route path="/reports" element={<ProtectedShell><Reports /></ProtectedShell>} />
             <Route path="/ledger" element={<ProtectedShell><Ledger /></ProtectedShell>} />
             <Route path="/ledger/invoice/:partyId" element={<ProtectedShell><LedgerInvoiceParty /></ProtectedShell>} />
