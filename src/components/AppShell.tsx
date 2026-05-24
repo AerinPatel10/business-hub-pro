@@ -41,7 +41,11 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { settings } = useAppData();
+  const { mode, setMode } = useAccountMode();
   const [open, setOpen] = useState(false);
+
+  const menu = buildMenu(mode);
+  const isEstimateMode = mode === "estimate";
 
   // FAB only visible on the main dashboard
   const isDashboard = location.pathname === "/";
