@@ -389,7 +389,7 @@ const Reports = () => {
         </div>
       </Card>
 
-      <Tabs defaultValue="sales" className="w-full">
+      <Tabs defaultValue={mode === "estimate" ? "estimates" : "sales"} className="w-full">
         <TabsList className="w-full grid grid-cols-3 h-auto">
           <TabsTrigger value="sales" className="text-xs">Sales</TabsTrigger>
           <TabsTrigger value="parties" className="text-xs">Parties</TabsTrigger>
