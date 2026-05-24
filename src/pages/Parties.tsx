@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAppData, type Party, type Transaction, type OrderItem } from "@/contexts/AppDataContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -38,7 +38,7 @@ export const PartyList = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Parties</h1>
-        <Button asChild size="sm" className="h-10"><Link to="/parties/new"><Plus className="h-4 w-4 mr-1" /> Add</Link></Button>
+        <Button asChild size="sm" className="h-10"><Link to={`/parties/new${tab === "supplier" ? "?type=supplier" : tab === "customer" ? "?type=customer" : ""}`}><Plus className="h-4 w-4 mr-1" /> Add {tab === "supplier" ? "Supplier" : tab === "customer" ? "Customer" : ""}</Link></Button>
       </div>
 
       <div className="flex gap-2">
@@ -101,9 +101,11 @@ const blank: Partial<Party> = { name: "", type: "customer", phone: "", email: ""
 export const PartyForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
   const { parties, refresh } = useAppData();
   const editing = id && id !== "new" ? parties.find(p => p.id === id) : null;
-  const [form, setForm] = useState<Partial<Party>>(editing ?? blank);
+  const initialType = (search.get("type") === "supplier" ? "supplier" : "customer") as "customer" | "supplier";
+  const [form, setForm] = useState<Partial<Party>>(editing ?? { ...blank, type: initialType });
   const [busy, setBusy] = useState(false);
 
   const set = <K extends keyof Party>(k: K, v: Party[K]) => setForm(f => ({ ...f, [k]: v }));

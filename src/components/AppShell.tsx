@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Package, FileText, Users, BarChart3, Plus, LogOut, Settings as SettingsIcon, Menu, ClipboardList, BookOpen, ChevronDown, FileSpreadsheet, Receipt, ShoppingCart, Scale } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useAccountMode, type AccountMode } from "@/contexts/AccountModeContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -11,32 +12,40 @@ type MenuItem =
   | { to: string; label: string; icon: typeof Home; children?: undefined }
   | { label: string; icon: typeof Home; match: string; children: { to: string; label: string; icon: typeof Home }[]; to?: undefined };
 
-const menu: MenuItem[] = [
-  { to: "/", label: "Dashboard", icon: Home },
-  { to: "/inventory", label: "Items", icon: Package },
-  { to: "/invoices", label: "Sales / Invoices", icon: FileText },
-  { to: "/purchases", label: "Purchases", icon: ShoppingCart },
-  { to: "/estimates", label: "Estimates", icon: ClipboardList },
-  { to: "/expenses", label: "Expenses", icon: Receipt },
-  { to: "/parties", label: "Parties", icon: Users },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  {
-    label: "Ledger", icon: BookOpen, match: "/ledger",
-    children: [
-      { to: "/ledger?tab=invoice", label: "Invoice", icon: FileText },
-      { to: "/ledger?tab=estimate", label: "Estimate", icon: FileSpreadsheet },
-    ],
-  },
-  { to: "/balance-sheet", label: "Balance Sheet", icon: Scale },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
-];
+const buildMenu = (mode: AccountMode): MenuItem[] => {
+  const isEstimate = mode === "estimate";
+  return [
+    { to: "/", label: "Dashboard", icon: Home },
+    { to: "/inventory", label: "Items", icon: Package },
+    isEstimate
+      ? { to: "/estimates", label: "Sales / Estimates", icon: ClipboardList }
+      : { to: "/invoices", label: "Sales / Invoices", icon: FileText },
+    { to: "/purchases", label: "Purchases", icon: ShoppingCart },
+    { to: "/expenses", label: "Expenses", icon: Receipt },
+    { to: "/parties", label: "Parties", icon: Users },
+    { to: "/reports", label: "Reports", icon: BarChart3 },
+    {
+      label: "Ledger", icon: BookOpen, match: "/ledger",
+      children: [
+        { to: `/ledger?tab=${isEstimate ? "estimate" : "invoice"}`, label: isEstimate ? "Estimate" : "Invoice", icon: isEstimate ? FileSpreadsheet : FileText },
+        { to: `/ledger?tab=${isEstimate ? "invoice" : "estimate"}`, label: isEstimate ? "Invoice" : "Estimate", icon: isEstimate ? FileText : FileSpreadsheet },
+      ],
+    },
+    { to: "/balance-sheet", label: "Balance Sheet", icon: Scale },
+    { to: "/settings", label: "Settings", icon: SettingsIcon },
+  ];
+};
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { settings } = useAppData();
+  const { mode, setMode } = useAccountMode();
   const [open, setOpen] = useState(false);
+
+  const menu = buildMenu(mode);
+  const isEstimateMode = mode === "estimate";
 
   // FAB only visible on the main dashboard
   const isDashboard = location.pathname === "/";
@@ -119,9 +128,50 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
               </div>
             </Link>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} aria-label="Settings" className="rounded-sm">
-            <SettingsIcon className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <div
+              role="tablist"
+              aria-label="Account mode"
+              className="hidden sm:inline-flex items-center rounded-full bg-secondary p-0.5 text-[11px] font-semibold"
+            >
+              {(["invoice", "estimate"] as const).map(m => (
+                <button
+                  key={m}
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "px-3 py-1 rounded-full capitalize transition-all",
+                    mode === m ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} aria-label="Settings" className="rounded-sm">
+              <SettingsIcon className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+        {/* Mobile-only mode toggle row */}
+        <div className="sm:hidden mx-auto max-w-3xl px-4 pb-2 -mt-1">
+          <div role="tablist" aria-label="Account mode" className="inline-flex items-center rounded-full bg-secondary p-0.5 text-[11px] font-semibold">
+            {(["invoice", "estimate"] as const).map(m => (
+              <button
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => setMode(m)}
+                className={cn(
+                  "px-3 py-1 rounded-full capitalize transition-all",
+                  mode === m ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
+                )}
+              >
+                {m} account
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -130,12 +180,12 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         {children}
       </main>
 
-      {/* Floating new invoice — only on dashboard */}
+      {/* Floating new doc — only on dashboard */}
       {isDashboard && (
         <button
-          onClick={() => navigate("/invoices/new")}
+          onClick={() => navigate(isEstimateMode ? "/estimates/new" : "/invoices/new")}
           className="fixed bottom-6 right-5 z-50 h-14 w-14 rounded-full btn-premium flex items-center justify-center active:scale-95 transition-transform ring-2 ring-accent/40"
-          aria-label="New invoice"
+          aria-label={isEstimateMode ? "New estimate" : "New invoice"}
         >
           <Plus className="h-6 w-6" />
         </button>

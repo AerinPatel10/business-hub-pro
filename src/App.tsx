@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppDataProvider } from "@/contexts/AppDataContext";
+import { AccountModeProvider } from "@/contexts/AccountModeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppShell } from "@/components/AppShell";
 
@@ -32,7 +33,9 @@ const queryClient = new QueryClient();
 const ProtectedShell = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
     <AppDataProvider>
-      <AppShell>{children}</AppShell>
+      <AccountModeProvider>
+        <AppShell>{children}</AppShell>
+      </AccountModeProvider>
     </AppDataProvider>
   </ProtectedRoute>
 );

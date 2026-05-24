@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppData, type OrderItem } from "@/contexts/AppDataContext";
+import { useAccountMode } from "@/contexts/AccountModeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const downloadCSV = (filename: string, header: string[], rows: (string | number)
 
 const Reports = () => {
   const { orders, parties, transactions, profile } = useAppData();
+  const { mode } = useAccountMode();
   const [range, setRange] = useState<Range>("month");
   const [customFrom, setCustomFrom] = useState<string>(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [customTo, setCustomTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
@@ -387,7 +389,7 @@ const Reports = () => {
         </div>
       </Card>
 
-      <Tabs defaultValue="sales" className="w-full">
+      <Tabs defaultValue={mode === "estimate" ? "estimates" : "sales"} className="w-full">
         <TabsList className="w-full grid grid-cols-3 h-auto">
           <TabsTrigger value="sales" className="text-xs">Sales</TabsTrigger>
           <TabsTrigger value="parties" className="text-xs">Parties</TabsTrigger>
