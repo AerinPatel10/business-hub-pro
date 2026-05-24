@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Package, FileText, Users, BarChart3, Plus, LogOut, Settings as SettingsIcon, Menu, ClipboardList, BookOpen, ChevronDown, FileSpreadsheet, Receipt, ShoppingCart, Scale } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useAccountMode, type AccountMode } from "@/contexts/AccountModeContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -11,25 +12,29 @@ type MenuItem =
   | { to: string; label: string; icon: typeof Home; children?: undefined }
   | { label: string; icon: typeof Home; match: string; children: { to: string; label: string; icon: typeof Home }[]; to?: undefined };
 
-const menu: MenuItem[] = [
-  { to: "/", label: "Dashboard", icon: Home },
-  { to: "/inventory", label: "Items", icon: Package },
-  { to: "/invoices", label: "Sales / Invoices", icon: FileText },
-  { to: "/purchases", label: "Purchases", icon: ShoppingCart },
-  { to: "/estimates", label: "Estimates", icon: ClipboardList },
-  { to: "/expenses", label: "Expenses", icon: Receipt },
-  { to: "/parties", label: "Parties", icon: Users },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  {
-    label: "Ledger", icon: BookOpen, match: "/ledger",
-    children: [
-      { to: "/ledger?tab=invoice", label: "Invoice", icon: FileText },
-      { to: "/ledger?tab=estimate", label: "Estimate", icon: FileSpreadsheet },
-    ],
-  },
-  { to: "/balance-sheet", label: "Balance Sheet", icon: Scale },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
-];
+const buildMenu = (mode: AccountMode): MenuItem[] => {
+  const isEstimate = mode === "estimate";
+  return [
+    { to: "/", label: "Dashboard", icon: Home },
+    { to: "/inventory", label: "Items", icon: Package },
+    isEstimate
+      ? { to: "/estimates", label: "Sales / Estimates", icon: ClipboardList }
+      : { to: "/invoices", label: "Sales / Invoices", icon: FileText },
+    { to: "/purchases", label: "Purchases", icon: ShoppingCart },
+    { to: "/expenses", label: "Expenses", icon: Receipt },
+    { to: "/parties", label: "Parties", icon: Users },
+    { to: "/reports", label: "Reports", icon: BarChart3 },
+    {
+      label: "Ledger", icon: BookOpen, match: "/ledger",
+      children: [
+        { to: `/ledger?tab=${isEstimate ? "estimate" : "invoice"}`, label: isEstimate ? "Estimate" : "Invoice", icon: isEstimate ? FileSpreadsheet : FileText },
+        { to: `/ledger?tab=${isEstimate ? "invoice" : "estimate"}`, label: isEstimate ? "Invoice" : "Estimate", icon: isEstimate ? FileText : FileSpreadsheet },
+      ],
+    },
+    { to: "/balance-sheet", label: "Balance Sheet", icon: Scale },
+    { to: "/settings", label: "Settings", icon: SettingsIcon },
+  ];
+};
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
