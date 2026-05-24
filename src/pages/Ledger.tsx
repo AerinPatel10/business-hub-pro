@@ -103,7 +103,9 @@ const Ledger = () => {
   };
 
   const handleTab = (v: string) => {
-    setTab(v as "invoice" | "estimate");
+    const next = v as "invoice" | "estimate";
+    setTab(next);
+    setMode(next);
     setParams({ tab: v }, { replace: true });
   };
 
