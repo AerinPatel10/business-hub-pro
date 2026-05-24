@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useAccountMode } from "@/contexts/AccountModeContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -9,16 +10,17 @@ import { inr } from "@/lib/format";
 
 const Ledger = () => {
   const { parties, orders } = useAppData();
+  const { mode, setMode } = useAccountMode();
   const [params, setParams] = useSearchParams();
-  const initial = (params.get("tab") as "invoice" | "estimate") ?? "invoice";
+  const initial = (params.get("tab") as "invoice" | "estimate") ?? mode;
   const [tab, setTab] = useState<"invoice" | "estimate">(initial);
   const [q, setQ] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
-    const t = (params.get("tab") as "invoice" | "estimate") ?? "invoice";
+    const t = (params.get("tab") as "invoice" | "estimate") ?? mode;
     setTab(t);
-  }, [params]);
+  }, [params, mode]);
 
   const partySummaries = useMemo(() => {
     type S = {
