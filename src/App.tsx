@@ -33,7 +33,9 @@ const queryClient = new QueryClient();
 const ProtectedShell = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
     <AppDataProvider>
-      <AppShell>{children}</AppShell>
+      <AccountModeProvider>
+        <AppShell>{children}</AppShell>
+      </AccountModeProvider>
     </AppDataProvider>
   </ProtectedRoute>
 );
