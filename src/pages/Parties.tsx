@@ -38,7 +38,7 @@ export const PartyList = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Parties</h1>
-        <Button asChild size="sm" className="h-10"><Link to="/parties/new"><Plus className="h-4 w-4 mr-1" /> Add</Link></Button>
+        <Button asChild size="sm" className="h-10"><Link to={`/parties/new${tab === "supplier" ? "?type=supplier" : tab === "customer" ? "?type=customer" : ""}`}><Plus className="h-4 w-4 mr-1" /> Add {tab === "supplier" ? "Supplier" : tab === "customer" ? "Customer" : ""}</Link></Button>
       </div>
 
       <div className="flex gap-2">
