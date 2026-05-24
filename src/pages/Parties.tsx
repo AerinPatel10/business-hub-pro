@@ -101,9 +101,11 @@ const blank: Partial<Party> = { name: "", type: "customer", phone: "", email: ""
 export const PartyForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
   const { parties, refresh } = useAppData();
   const editing = id && id !== "new" ? parties.find(p => p.id === id) : null;
-  const [form, setForm] = useState<Partial<Party>>(editing ?? blank);
+  const initialType = (search.get("type") === "supplier" ? "supplier" : "customer") as "customer" | "supplier";
+  const [form, setForm] = useState<Partial<Party>>(editing ?? { ...blank, type: initialType });
   const [busy, setBusy] = useState(false);
 
   const set = <K extends keyof Party>(k: K, v: Party[K]) => setForm(f => ({ ...f, [k]: v }));
