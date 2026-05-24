@@ -128,9 +128,50 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
               </div>
             </Link>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} aria-label="Settings" className="rounded-sm">
-            <SettingsIcon className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <div
+              role="tablist"
+              aria-label="Account mode"
+              className="hidden sm:inline-flex items-center rounded-full bg-secondary p-0.5 text-[11px] font-semibold"
+            >
+              {(["invoice", "estimate"] as const).map(m => (
+                <button
+                  key={m}
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "px-3 py-1 rounded-full capitalize transition-all",
+                    mode === m ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} aria-label="Settings" className="rounded-sm">
+              <SettingsIcon className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+        {/* Mobile-only mode toggle row */}
+        <div className="sm:hidden mx-auto max-w-3xl px-4 pb-2 -mt-1">
+          <div role="tablist" aria-label="Account mode" className="inline-flex items-center rounded-full bg-secondary p-0.5 text-[11px] font-semibold">
+            {(["invoice", "estimate"] as const).map(m => (
+              <button
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => setMode(m)}
+                className={cn(
+                  "px-3 py-1 rounded-full capitalize transition-all",
+                  mode === m ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
+                )}
+              >
+                {m} account
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -139,12 +180,12 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         {children}
       </main>
 
-      {/* Floating new invoice — only on dashboard */}
+      {/* Floating new doc — only on dashboard */}
       {isDashboard && (
         <button
-          onClick={() => navigate("/invoices/new")}
+          onClick={() => navigate(isEstimateMode ? "/estimates/new" : "/invoices/new")}
           className="fixed bottom-6 right-5 z-50 h-14 w-14 rounded-full btn-premium flex items-center justify-center active:scale-95 transition-transform ring-2 ring-accent/40"
-          aria-label="New invoice"
+          aria-label={isEstimateMode ? "New estimate" : "New invoice"}
         >
           <Plus className="h-6 w-6" />
         </button>
