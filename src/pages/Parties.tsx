@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAppData, type Party, type Transaction, type OrderItem } from "@/contexts/AppDataContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
