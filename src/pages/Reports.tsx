@@ -51,6 +51,16 @@ const Reports = () => {
   const [allItems, setAllItems] = useState<OrderItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [statementPartyId, setStatementPartyId] = useState<string>("");
+  const [tab, setTab] = useState<string>(mode === "estimate" ? "estimates" : "sales");
+
+  // Keep the active tab in sync with the global account mode switcher
+  useEffect(() => {
+    setTab(prev => {
+      if (mode === "estimate" && prev === "sales") return "estimates";
+      if (mode === "invoice" && prev === "estimates") return "sales";
+      return prev;
+    });
+  }, [mode]);
 
   useEffect(() => {
     supabase.from("order_items").select("*").then(({ data }) => setAllItems(data ?? []));
