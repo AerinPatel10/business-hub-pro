@@ -18,8 +18,9 @@ const Ledger = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const t = (params.get("tab") as "invoice" | "estimate") ?? mode;
-    setTab(t);
+    const urlTab = params.get("tab") as "invoice" | "estimate" | null;
+    // URL param wins on first load; afterwards the global mode toggle drives the tab
+    setTab(urlTab ?? mode);
   }, [params, mode]);
 
   const partySummaries = useMemo(() => {
