@@ -1,80 +1,45 @@
-## 1. Fix duplicate entries in Reports
+# Two Accounts, One App — Full Data Isolation
 
-The "Sales" tab currently shows one row per line-item, so an invoice with 2 products shows 2 rows. Change it to show one row per invoice (with item count + product names summarized), and keep an optional "show line items" expand toggle. The Statement tab will also be cleaned up so each invoice + each payment shows exactly once with correct Dr/Cr sides (Invoice = Dr, Payment Received = Cr — never both as Dr).
+Right now only orders are split by `order_type`. Parties, expenses, purchases, transactions, balance sheet, reports all mix data between the Invoice and Estimate accounts. This plan makes the two accounts behave like two independent ledgers that share the same login.
 
-## 2. Menu: add Expense and Purchase
+## Approach
 
-Add two new menu entries in `AppShell` between "Parties" and "Reports":
-- **Expense** (already has a page — wire it into the sidebar menu)
-- **Purchase** (new module)
+Add a single `account_mode` column (`'invoice' | 'estimate'`) to every user-owned table so each row belongs to exactly one account. The active mode (from `AccountModeContext`) is written on every insert and used as a filter on every read.
 
-## 3. Expense — keep simple
+## Schema changes (migration)
 
-Use the existing `expenses` table. Form captures: Amount, Description (notes), Date, Payment method, Category. List shows all expenses with total. Already mostly built; add Description field prominence and a monthly total tile.
+Add column `account_mode text not null default 'invoice'` (check constraint: invoice | estimate) to:
 
-## 4. Purchase — mirror Sales
+- `parties`
+- `products`
+- `orders`            (in addition to existing `order_type`)
+- `order_items`       (denormalized for fast filtering)
+- `transactions`
+- `expenses`
+- `categories`
 
-Reuse the existing `orders` schema with a new `order_type = "purchase"`. (Schema already has the enum extensible — we'll add it via migration.) Pages:
-- `/purchases` — list (like Invoices)
-- `/purchases/new` — same form as InvoiceNew but for supplier parties, increases stock instead of decreasing
-- `/purchases/:id` — detail view
-Supplier parties already exist (`type = supplier`).
+Backfill: all existing rows → `'invoice'`.
+Index `(owner_id, account_mode)` on each table.
 
-## 5. Ledger: Opening Balance
+## Code changes
 
-In `Ledger.tsx`, include each party's `opening_balance` in both Invoice and Estimate summaries — show as the starting balance, and include it in the displayed "Due" / total figures. In `LedgerDetail` statement, the Invoice statement already shows OPENING BALANCE; we'll add the same row to the Estimate statement.
+1. **`AppDataContext`** — accept current `mode`, filter every `select` by `account_mode=mode`. Re-fetch when mode changes. Realtime channel resubscribes per mode.
+2. **All insert paths** — stamp `account_mode: mode` on create:
+   - Parties (`PartyForm`)
+   - Products (`Inventory`)
+   - Invoice / Estimate / Purchase create (`InvoiceNew`, `Purchases/new`)
+   - Expenses
+   - Transactions (payments, ledger adjustments)
+3. **Mode-aware navigation labels** — sidebar shows "Invoice Purchases / Invoice Expenses / Invoice Balance Sheet" vs the estimate equivalents, so the user always knows which account they're inside.
+4. **Pages already using `useAppData`** (Dashboard, Reports, Ledger, BalanceSheet, Purchases, Expenses, Parties, Inventory, Invoices, Estimates) auto-filter because the context returns only the active account's data. Light cleanup to remove now-redundant `order_type` mixing where it doubled rows.
+5. **Switching accounts** triggers a context refresh so the whole UI swaps instantly — no page-reload, no stale rows.
 
-## 6. Balance Sheet — two views
+## Out of scope
 
-New menu entry "Balance Sheet" with two tabs:
+- No change to invoice PDF layout, auth, or RLS policies beyond adding the column.
+- Profile / app_settings stay shared (single business identity, GSTIN, logo).
 
-**(a) Summary** — quick snapshot:
-```
-Assets                          Liabilities
-  Cash in hand    xxxx           Sundry Creditors  xxxx
-  Bank           xxxx            Capital            xxxx
-  Sundry Debtors xxxx
-  Closing Stock  xxxx
-  ─────────────                  ─────────────
-  Total          xxxx            Total             xxxx
-```
+## Technical notes
 
-**(b) Complete (Tally-style)** — full grouped balance sheet:
-```
-LIABILITIES                    Amount    ASSETS                     Amount
-  Capital Account                          Fixed Assets
-  Loans (Liability)                        Investments
-  Current Liabilities                      Current Assets
-    Sundry Creditors                         Sundry Debtors
-    Duties & Taxes (GST)                     Closing Stock
-    Provisions                               Cash-in-Hand
-                                             Bank Accounts
-  Profit & Loss A/c                        Profit & Loss A/c (if loss)
-  ────────────────────────────             ────────────────────────────
-  Total                                    Total
-```
-
-Computed from:
-- Sundry Debtors = sum of (customer party totals − payments + opening_balance)
-- Sundry Creditors = sum of (supplier purchases − payments paid + opening_balance)
-- Closing Stock = Σ(product.stock × product.cost)
-- Duties & Taxes = GST output collected − GST input paid
-- Cash/Bank derived from transactions grouped by payment_method
-- P&L = Sales − Purchases − Expenses
-
-Includes "Download PDF" using jsPDF + autoTable in the same two-column Tally format.
-
-## Technical changes
-
-- New migration: extend `order_type` enum to include `"purchase"`.
-- New routes in `App.tsx`: `/expenses`, `/purchases`, `/purchases/new`, `/purchases/:id`, `/purchases/:id/edit`, `/balance-sheet`.
-- New page files: `Purchases.tsx`, `PurchaseNew.tsx` (or reuse InvoiceNew with `mode="purchase"`), `BalanceSheet.tsx`.
-- Update `AppShell.tsx` menu.
-- Update `Reports.tsx` Sales tab grouping logic.
-- Update `Ledger.tsx` to include opening balance.
-
-## Notes
-
-This is a large change spanning ~8 files plus 1 migration. The Balance Sheet figures will be best-effort based on available data — without a separate ledger of bank/cash accounts, cash & bank are inferred from `transactions.payment_method`. If you want a dedicated Cash/Bank accounts table later, we can add it.
-
-Confirm and I'll implement.
+- `account_mode` lives alongside `order_type`: `order_type` still distinguishes sale vs estimate vs purchase *within* an account (so the Invoice account can have both sales and purchases).
+- Migration is additive and safe; existing data lands in the Invoice account, matching the user's current mental model.
