@@ -11,25 +11,25 @@ import { inr, fmtDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const CATEGORIES = ["Rent", "Salary", "Electricity", "Travel", "Stationery", "Marketing", "Misc"];
-
 const Expenses = () => {
   const { expenses, refresh } = useAppData();
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState("Misc");
+  const [category, setCategory] = useState("");
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState("Cash");
   const [notes, setNotes] = useState("");
 
   const save = async () => {
+    const name = category.trim();
+    if (!name) { toast.error("Enter expense name"); return; }
     if (amount <= 0) { toast.error("Enter amount"); return; }
     const { error } = await supabase.from("expenses").insert({
-      category, amount, expense_date: date, payment_method: method, notes: notes || null,
+      category: name, amount, expense_date: date, payment_method: method, notes: notes || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Expense added");
-    setOpen(false); setAmount(0); setNotes("");
+    setOpen(false); setAmount(0); setNotes(""); setCategory("");
     await refresh();
   };
 
@@ -71,11 +71,15 @@ const Expenses = () => {
           <DialogHeader><DialogTitle>Add Expense</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label>Expense Name *</Label>
+              <Input
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                placeholder="e.g. Rent, Internet bill, Tea, etc."
+                className="h-12"
+                autoFocus
+                maxLength={80}
+              />
             </div>
             <div>
               <Label>Amount (₹)</Label>
