@@ -1,77 +1,96 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Package, FileText, Users, BarChart3, Plus, LogOut, Settings as SettingsIcon, Menu, ClipboardList, BookOpen, ChevronDown, FileSpreadsheet, Receipt, ShoppingCart, Scale, Check, Building2, ArrowLeftRight } from "lucide-react";
+import {
+  Home, Package, FileText, Users, BarChart3, Plus, LogOut, Settings as SettingsIcon,
+  Menu, FileSpreadsheet, Receipt, ShoppingCart, Scale, Check, Building2, ArrowLeftRight,
+  ChevronDown, LayoutDashboard, BookOpen, IndianRupee
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useAccountMode, type AccountMode } from "@/contexts/AccountModeContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-type MenuItem =
-  | { to: string; label: string; icon: typeof Home; children?: undefined }
-  | { label: string; icon: typeof Home; match: string; children: { to: string; label: string; icon: typeof Home }[]; to?: undefined };
+type LucideIcon = typeof Home;
+type Item = { to: string; label: string; icon: LucideIcon; setMode?: AccountMode };
+type Section = { heading: string; tone?: "bill" | "without" | "neutral"; items: Item[] };
 
-const buildMenu = (mode: AccountMode): MenuItem[] => {
-  const isEstimate = mode === "estimate";
-  return [
-    { to: "/", label: "Dashboard", icon: Home },
-    { to: "/inventory", label: "Items", icon: Package },
-    isEstimate
-      ? { to: "/estimates", label: "Sales / Estimates", icon: ClipboardList }
-      : { to: "/invoices", label: "Sales / Invoices", icon: FileText },
-    { to: "/purchases", label: "Purchases", icon: ShoppingCart },
-    { to: "/expenses", label: "Expenses", icon: Receipt },
-    { to: "/parties", label: "Parties", icon: Users },
-    { to: "/reports", label: "Reports", icon: BarChart3 },
-    {
-      label: "Ledger", icon: BookOpen, match: "/ledger",
-      children: [
-        { to: `/ledger?tab=${isEstimate ? "estimate" : "invoice"}`, label: isEstimate ? "Estimate" : "Invoice", icon: isEstimate ? FileSpreadsheet : FileText },
-        { to: `/ledger?tab=${isEstimate ? "invoice" : "estimate"}`, label: isEstimate ? "Invoice" : "Estimate", icon: isEstimate ? FileText : FileSpreadsheet },
-      ],
-    },
-    { to: "/balance-sheet", label: "Balance Sheet", icon: Scale },
-    { to: "/settings", label: "Settings", icon: SettingsIcon },
-  ];
-};
-
-const ACCOUNTS: { id: AccountMode; name: string; sub: string; Icon: typeof Home; tone: string }[] = [
-  { id: "invoice", name: "Invoice Account", sub: "Tax invoices · GST · Payments", Icon: FileText, tone: "text-primary" },
-  { id: "estimate", name: "Estimate Account", sub: "Quotes · Proforma · No payment", Icon: FileSpreadsheet, tone: "text-amber-600 dark:text-amber-400" },
+const buildSections = (): Section[] => [
+  {
+    heading: "Overview",
+    tone: "neutral",
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    heading: "Bill Section",
+    tone: "bill",
+    items: [
+      { to: "/invoices", label: "Bill (Invoice)", icon: FileText, setMode: "invoice" },
+      { to: "/purchases?acct=invoice", label: "Bill Purchase", icon: ShoppingCart, setMode: "invoice" },
+      { to: "/expenses?acct=invoice", label: "Bill Expenses", icon: IndianRupee, setMode: "invoice" },
+      { to: "/ledger?tab=invoice", label: "Bill Payments", icon: Receipt, setMode: "invoice" },
+    ],
+  },
+  {
+    heading: "Without Section",
+    tone: "without",
+    items: [
+      { to: "/estimates", label: "Without (Estimate)", icon: FileSpreadsheet, setMode: "estimate" },
+      { to: "/purchases?acct=estimate", label: "Without Purchase", icon: ShoppingCart, setMode: "estimate" },
+      { to: "/expenses?acct=estimate", label: "Without Expenses", icon: IndianRupee, setMode: "estimate" },
+      { to: "/ledger?tab=estimate", label: "Without Payments", icon: Receipt, setMode: "estimate" },
+    ],
+  },
+  {
+    heading: "Master",
+    tone: "neutral",
+    items: [
+      { to: "/parties", label: "Parties", icon: Users },
+      { to: "/inventory", label: "Items", icon: Package },
+    ],
+  },
+  {
+    heading: "Reports",
+    tone: "neutral",
+    items: [
+      { to: "/ledger?tab=invoice", label: "Bill Ledger", icon: BookOpen, setMode: "invoice" },
+      { to: "/ledger?tab=estimate", label: "Without Ledger", icon: BookOpen, setMode: "estimate" },
+      { to: "/balance-sheet?acct=invoice", label: "Bill Balance Sheet", icon: Scale, setMode: "invoice" },
+      { to: "/balance-sheet?acct=estimate", label: "Without Balance Sheet", icon: Scale, setMode: "estimate" },
+      { to: "/reports", label: "Reports", icon: BarChart3 },
+    ],
+  },
 ];
 
-const AccountSwitcher = ({ compact = false }: { compact?: boolean }) => {
+const ACCOUNTS: { id: AccountMode; name: string; sub: string; Icon: LucideIcon; tone: string }[] = [
+  { id: "invoice", name: "Bill Account", sub: "Tax invoices · GST · Payments", Icon: FileText, tone: "text-primary" },
+  { id: "estimate", name: "Without Account", sub: "Estimates · Quotes · No GST", Icon: FileSpreadsheet, tone: "text-amber-600 dark:text-amber-400" },
+];
+
+const AccountSwitcher = () => {
   const { mode, setMode } = useAccountMode();
   const current = ACCOUNTS.find(a => a.id === mode)!;
   const CurIcon = current.Icon;
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className={cn(
-            "group inline-flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-left transition-all hover:border-primary/40 hover:shadow-sm",
-            compact && "w-full"
-          )}
+          className="group inline-flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-primary/40 hover:shadow-sm transition-all"
           aria-label="Switch account"
         >
           <div className={cn("h-7 w-7 rounded-md bg-secondary flex items-center justify-center", current.tone)}>
             <CurIcon className="h-3.5 w-3.5" />
           </div>
-          <div className="leading-tight min-w-0">
+          <div className="leading-tight min-w-0 hidden sm:block">
             <div className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold">Account</div>
             <div className="text-[12px] font-semibold truncate">{current.name}</div>
           </div>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform ml-1" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
@@ -93,8 +112,7 @@ const AccountSwitcher = ({ compact = false }: { compact?: boolean }) => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold flex items-center gap-1.5">
-                  {a.name}
-                  {active && <Check className="h-3.5 w-3.5 text-primary" />}
+                  {a.name} {active && <Check className="h-3.5 w-3.5 text-primary" />}
                 </div>
                 <div className="text-[11px] text-muted-foreground">{a.sub}</div>
               </div>
@@ -115,18 +133,27 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { settings } = useAppData();
-  const { mode } = useAccountMode();
+  const { mode, setMode } = useAccountMode();
   const [open, setOpen] = useState(false);
 
-  const menu = buildMenu(mode);
+  const sections = buildSections();
   const isEstimateMode = mode === "estimate";
-
-  // FAB only visible on the main dashboard
   const isDashboard = location.pathname === "/";
+  const currentFull = location.pathname + location.search;
+
+  const toneClass = (tone?: Section["tone"]) =>
+    tone === "bill" ? "text-primary"
+    : tone === "without" ? "text-amber-600 dark:text-amber-400"
+    : "text-muted-foreground";
+
+  const handleNavigate = (item: Item) => {
+    if (item.setMode) setMode(item.setMode);
+    setOpen(false);
+    navigate(item.to);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Editorial top header */}
       <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-xl">
         <div className="mx-auto max-w-3xl flex items-center justify-between px-4 py-3 gap-2">
           <div className="flex items-center gap-3 min-w-0">
@@ -146,50 +173,52 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
                     </div>
                   </SheetTitle>
                 </SheetHeader>
-                <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-                  {menu.map(m => {
-                    const Icon = m.icon;
-                    if ("children" in m && m.children) {
-                      const g = m as Extract<MenuItem, { children: unknown[] }>;
-                      const groupActive = location.pathname.startsWith(g.match);
-                      return (
-                        <LedgerGroup
-                          key={g.label}
-                          label={g.label}
-                          Icon={Icon}
-                          active={groupActive}
-                          defaultOpen={groupActive}
-                          items={g.children}
-                          onNavigate={(to) => { setOpen(false); navigate(to); }}
-                        />
-                      );
-                    }
-                    const to = (m as { to: string }).to;
-                    const active = location.pathname === to || (to !== "/" && location.pathname.startsWith(to));
-                    return (
-                      <button
-                        key={to}
-                        onClick={() => { setOpen(false); navigate(to); }}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold tracking-wide transition-all border-l-2",
-                          active
-                            ? "bg-sidebar-accent text-sidebar-primary border-sidebar-primary"
-                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground border-transparent"
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {m.label}
-                      </button>
-                    );
-                  })}
+                <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+                  {sections.map(sec => (
+                    <div key={sec.heading}>
+                      <div className={cn(
+                        "px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.18em]",
+                        toneClass(sec.tone)
+                      )}>
+                        {sec.heading}
+                      </div>
+                      <div className="space-y-0.5">
+                        {sec.items.map(it => {
+                          const Icon = it.icon;
+                          const active = currentFull === it.to
+                            || (it.to !== "/" && !it.to.includes("?") && location.pathname.startsWith(it.to));
+                          return (
+                            <button
+                              key={it.to + it.label}
+                              onClick={() => handleNavigate(it)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-semibold tracking-wide transition-all border-l-2",
+                                active
+                                  ? "bg-sidebar-accent text-sidebar-primary border-sidebar-primary"
+                                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground border-transparent"
+                              )}
+                            >
+                              <Icon className={cn("h-4 w-4", !active && toneClass(sec.tone))} />
+                              {it.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </nav>
                 <div className="p-3 border-t border-sidebar-border">
+                  <button
+                    onClick={() => { setOpen(false); navigate("/settings"); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors"
+                  >
+                    <SettingsIcon className="h-4 w-4" /> Settings
+                  </button>
                   <button
                     onClick={() => { setOpen(false); signOut(); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold text-destructive hover:bg-sidebar-accent transition-colors"
                   >
-                    <LogOut className="h-4 w-4" />
-                    Sign out
+                    <LogOut className="h-4 w-4" /> Sign out
                   </button>
                 </div>
               </SheetContent>
@@ -211,12 +240,10 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-5 pb-24 safe-bottom animate-fade-in">
         {children}
       </main>
 
-      {/* Floating new doc — only on dashboard */}
       {isDashboard && (
         <button
           onClick={() => navigate(isEstimateMode ? "/estimates/new" : "/invoices/new")}
@@ -225,54 +252,6 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         >
           <Plus className="h-6 w-6" />
         </button>
-      )}
-    </div>
-  );
-};
-
-type LucideIcon = typeof Home;
-const LedgerGroup = ({
-  label, Icon, active, defaultOpen, items, onNavigate,
-}: {
-  label: string;
-  Icon: LucideIcon;
-  active: boolean;
-  defaultOpen: boolean;
-  items: { to: string; label: string; icon: LucideIcon }[];
-  onNavigate: (to: string) => void;
-}) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold tracking-wide transition-all border-l-2",
-          active
-            ? "bg-sidebar-accent text-sidebar-primary border-sidebar-primary"
-            : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground border-transparent"
-        )}
-      >
-        <Icon className="h-4 w-4" />
-        <span className="flex-1 text-left">{label}</span>
-        <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="ml-6 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2">
-          {items.map(it => {
-            const ItIcon = it.icon;
-            return (
-              <button
-                key={it.to}
-                onClick={() => onNavigate(it.to)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-sm text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              >
-                <ItIcon className="h-3.5 w-3.5" />
-                {it.label}
-              </button>
-            );
-          })}
-        </div>
       )}
     </div>
   );

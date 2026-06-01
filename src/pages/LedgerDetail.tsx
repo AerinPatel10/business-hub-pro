@@ -393,14 +393,16 @@ export const LedgerPaymentPage = () => {
   const party = parties.find((p) => p.id === partyId);
   const order = orders.find((o) => o.id === orderId);
   const orderTxns = transactions
-    .filter((t) => t.order_id === orderId && t.type === "credit")
+    .filter((t) => t.order_id === orderId)
     .sort((a, b) => new Date(b.txn_date).getTime() - new Date(a.txn_date).getTime());
   const editingTxn = editId ? orderTxns.find(t => t.id === editId) : null;
 
   const totalAmt = order ? Number(order.total) : 0;
   const paid = order ? Number(order.amount_paid) : 0;
-  const balance = Math.max(totalAmt - paid + (editingTxn ? Number(editingTxn.amount) : 0), 0);
+  const balance = Math.max(totalAmt - paid + (editingTxn?.type === "credit" ? Number(editingTxn.amount) : 0), 0);
 
+  // credit = money received (what I receive); debit = money given out (what I give)
+  const [txnType, setTxnType] = useState<"credit" | "debit">("credit");
   const [amount, setAmount] = useState<string>("");
   const [mode, setMode] = useState<string>("Cash");
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -409,6 +411,7 @@ export const LedgerPaymentPage = () => {
 
   useEffect(() => {
     if (editingTxn) {
+      setTxnType((editingTxn.type as "credit" | "debit") ?? "credit");
       setAmount(String(editingTxn.amount));
       setMode(editingTxn.payment_method ?? "Cash");
       setDate(editingTxn.txn_date);
@@ -420,29 +423,33 @@ export const LedgerPaymentPage = () => {
   }, [editId, order?.id]);
 
   const back = () => navigate(`/ledger/${kind}/${partyId}`);
+  const isReceive = txnType === "credit";
 
   const handleSave = async () => {
     if (!order) return;
     const amt = Number(amount);
     if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
-    if (amt > balance + 0.01) { toast.error("Amount exceeds balance due"); return; }
+    if (isReceive && amt > balance + 0.01) { toast.error("Amount exceeds balance due"); return; }
     setSaving(true);
     if (editingTxn) {
       const { error } = await supabase.from("transactions")
-        .update({ amount: amt, payment_method: mode, txn_date: date, notes: note })
+        .update({ type: txnType, amount: amt, payment_method: mode, txn_date: date, notes: note })
         .eq("id", editingTxn.id);
       if (error) { setSaving(false); toast.error(error.message); return; }
     } else {
+      const defaultNote = isReceive
+        ? `Payment received for ${order.invoice_number}`
+        : `Payment given against ${order.invoice_number}`;
       const { error } = await supabase.from("transactions").insert({
-        party_id: partyId, order_id: orderId, type: "credit",
+        party_id: partyId, order_id: orderId, type: txnType,
         amount: amt, payment_method: mode, txn_date: date,
-        notes: note || `Payment for ${order.invoice_number}`,
+        notes: note || defaultNote,
       });
       if (error) { setSaving(false); toast.error(error.message); return; }
     }
     await recomputeOrderTotals(orderId, totalAmt);
     setSaving(false);
-    toast.success(editingTxn ? "Payment updated" : "Payment recorded");
+    toast.success(editingTxn ? "Entry updated" : isReceive ? "Money received" : "Money given recorded");
     await refresh();
     back();
   };
@@ -459,7 +466,7 @@ export const LedgerPaymentPage = () => {
   return (
     <div className="space-y-4">
       <Header
-        title={editingTxn ? "Edit Payment" : "Record Payment"}
+        title={editingTxn ? "Edit Entry" : "Record Money"}
         subtitle={`${party.name} · ${order.invoice_number}`}
         onBack={back}
       />
@@ -467,15 +474,51 @@ export const LedgerPaymentPage = () => {
       <Card>
         <CardContent className="p-4 grid grid-cols-3 gap-2 text-center">
           <div><div className="text-xs text-muted-foreground">Total</div><div className="font-bold text-sm">{inr(totalAmt)}</div></div>
-          <div><div className="text-xs text-muted-foreground">Paid</div><div className="font-bold text-sm text-green-600">{inr(paid)}</div></div>
-          <div><div className="text-xs text-muted-foreground">Balance</div><div className="font-bold text-sm text-destructive">{inr(balance - (editingTxn ? Number(editingTxn.amount) : 0))}</div></div>
+          <div><div className="text-xs text-muted-foreground">Received</div><div className="font-bold text-sm text-green-600">{inr(paid)}</div></div>
+          <div><div className="text-xs text-muted-foreground">Balance</div><div className="font-bold text-sm text-destructive">{inr(balance - (editingTxn?.type === "credit" ? Number(editingTxn.amount) : 0))}</div></div>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="p-4 space-y-3">
           <div>
-            <Label>Amount Received *</Label>
+            <Label className="mb-1.5 block">Entry Type *</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTxnType("credit")}
+                className={cn(
+                  "rounded-md border-2 px-3 py-2.5 text-left transition-all",
+                  isReceive
+                    ? "border-green-600 bg-green-50 dark:bg-green-950/30"
+                    : "border-border bg-card hover:border-green-600/40"
+                )}
+              >
+                <div className="text-[10px] uppercase tracking-widest font-bold text-green-700 dark:text-green-400">
+                  Credit · Money In
+                </div>
+                <div className="text-sm font-semibold">What I Receive</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTxnType("debit")}
+                className={cn(
+                  "rounded-md border-2 px-3 py-2.5 text-left transition-all",
+                  !isReceive
+                    ? "border-destructive bg-destructive/5"
+                    : "border-border bg-card hover:border-destructive/40"
+                )}
+              >
+                <div className="text-[10px] uppercase tracking-widest font-bold text-destructive">
+                  Debit · Money Out
+                </div>
+                <div className="text-sm font-semibold">What I Give</div>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <Label>{isReceive ? "Amount Received" : "Amount Given"} *</Label>
             <Input type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-11" autoFocus />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -500,7 +543,7 @@ export const LedgerPaymentPage = () => {
           <div className="flex gap-2 pt-2">
             <Button variant="outline" className="flex-1" onClick={back}>Cancel</Button>
             <Button className="flex-1" onClick={handleSave} disabled={saving}>
-              {editingTxn ? "Save Changes" : "Record Payment"}
+              {editingTxn ? "Save Changes" : isReceive ? "Record Receipt" : "Record Payment Out"}
             </Button>
           </div>
         </CardContent>
@@ -509,21 +552,31 @@ export const LedgerPaymentPage = () => {
       {orderTxns.length > 0 && (
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm font-semibold mb-2">Previous Payments</div>
+            <div className="text-sm font-semibold mb-2">Previous Entries</div>
             <div className="space-y-1.5">
-              {orderTxns.map(t => (
-                <div key={t.id} className="flex items-center justify-between text-xs border-b pb-1.5 last:border-0">
-                  <div>
-                    <div className="font-medium">{inr(t.amount)} · {t.payment_method ?? "—"}</div>
-                    <div className="text-muted-foreground">{fmt(t.txn_date)}</div>
+              {orderTxns.map(t => {
+                const inFlow = t.type === "credit";
+                return (
+                  <div key={t.id} className="flex items-center justify-between text-xs border-b pb-1.5 last:border-0">
+                    <div>
+                      <div className="font-medium flex items-center gap-1.5">
+                        <span className={cn(
+                          "text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded",
+                          inFlow ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+                                 : "bg-destructive/10 text-destructive"
+                        )}>{inFlow ? "Cr · In" : "Dr · Out"}</span>
+                        {inr(t.amount)} · {t.payment_method ?? "—"}
+                      </div>
+                      <div className="text-muted-foreground">{fmt(t.txn_date)}</div>
+                    </div>
+                    {!editingTxn && t.id !== editId && (
+                      <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate(`/ledger/${kind}/${partyId}/pay/${orderId}?edit=${t.id}`)}>
+                        Edit
+                      </Button>
+                    )}
                   </div>
-                  {!editingTxn && t.id !== editId && (
-                    <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate(`/ledger/${kind}/${partyId}/pay/${orderId}?edit=${t.id}`)}>
-                      Edit
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -534,3 +587,4 @@ export const LedgerPaymentPage = () => {
 
 // tiny local hook to avoid extra top-level import (kept here for cohesion)
 import { useSearchParams as useSearchParamsLocal } from "react-router-dom";
+import { cn } from "@/lib/utils";
