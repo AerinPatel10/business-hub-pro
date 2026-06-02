@@ -25,6 +25,7 @@ import BalanceSheet from "./pages/BalanceSheet";
 import Reports from "./pages/Reports";
 import Ledger from "./pages/Ledger";
 import { LedgerInvoiceParty, LedgerEstimateParty, LedgerPaymentPage } from "./pages/LedgerDetail";
+import { PaymentsPage, PaymentLedgerPage } from "./pages/Payments";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
