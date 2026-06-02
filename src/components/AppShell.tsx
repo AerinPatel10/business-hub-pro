@@ -33,7 +33,8 @@ const buildSections = (): Section[] => [
       { to: "/invoices", label: "Bill (Invoice)", icon: FileText, setMode: "invoice" },
       { to: "/purchases?acct=invoice", label: "Bill Purchase", icon: ShoppingCart, setMode: "invoice" },
       { to: "/expenses?acct=invoice", label: "Bill Expenses", icon: IndianRupee, setMode: "invoice" },
-      { to: "/ledger?tab=invoice", label: "Bill Payments", icon: Receipt, setMode: "invoice" },
+      { to: "/payments?acct=invoice", label: "Bill Payments", icon: Receipt, setMode: "invoice" },
+      { to: "/payment-ledger?acct=invoice", label: "Bill Payment Ledger", icon: BookOpen, setMode: "invoice" },
     ],
   },
   {
@@ -43,7 +44,8 @@ const buildSections = (): Section[] => [
       { to: "/estimates", label: "Without (Estimate)", icon: FileSpreadsheet, setMode: "estimate" },
       { to: "/purchases?acct=estimate", label: "Without Purchase", icon: ShoppingCart, setMode: "estimate" },
       { to: "/expenses?acct=estimate", label: "Without Expenses", icon: IndianRupee, setMode: "estimate" },
-      { to: "/ledger?tab=estimate", label: "Without Payments", icon: Receipt, setMode: "estimate" },
+      { to: "/payments?acct=estimate", label: "Without Payments", icon: Receipt, setMode: "estimate" },
+      { to: "/payment-ledger?acct=estimate", label: "Without Payment Ledger", icon: BookOpen, setMode: "estimate" },
     ],
   },
   {
