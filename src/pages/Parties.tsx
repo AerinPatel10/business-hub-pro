@@ -144,8 +144,8 @@ export const PartyForm = () => {
       opening_balance_date: (form as any).opening_balance_date || null,
     };
     const { error } = editing
-      ? await supabase.from("parties").update(payload).eq("id", editing.id)
-      : await supabase.from("parties").insert(payload);
+      ? await (supabase.from("parties") as any).update(payload).eq("id", editing.id)
+      : await (supabase.from("parties") as any).insert(payload);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success(editing ? "Party updated" : "Party added");
