@@ -55,7 +55,7 @@ async function recomputeOrderTotals(orderId: string, total: number) {
 type Entry = { date: string; ref: string; particulars: string; amount: number; orderId?: string; txnId?: string };
 
 function buildStatement(
-  party: { opening_balance: number; created_at: string } | undefined,
+  party: { opening_balance: number; created_at: string; opening_balance_date?: string | null } | undefined,
   partyOrders: Order[],
   partyTxns: Transaction[],
   kind: "invoice" | "estimate"
@@ -63,7 +63,8 @@ function buildStatement(
   const dbList: Entry[] = [];
   const crList: Entry[] = [];
   const ob = party ? Number(party.opening_balance) || 0 : 0;
-  const obDate = party?.created_at?.slice(0, 10) ?? "";
+  // Use user-chosen opening balance date if provided; otherwise leave blank so it doesn't render
+  const obDate = party?.opening_balance_date ? String(party.opening_balance_date).slice(0, 10) : "";
 
   // Opening balance — only on Invoice statement (estimates aren't a money owed concept)
   if (kind === "invoice") {
