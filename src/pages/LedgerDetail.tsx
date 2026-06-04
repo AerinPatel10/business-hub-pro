@@ -21,7 +21,9 @@ import autoTable from "jspdf-autotable";
 const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"];
 
 const fmt = (d: string) => {
+  if (!d) return "";
   const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = dt.toLocaleString("en-US", { month: "short" });
   const yy = String(dt.getFullYear()).slice(2);
