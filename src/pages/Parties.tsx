@@ -141,6 +141,7 @@ export const PartyForm = () => {
       state: form.state || null,
       state_code: form.state_code || null,
       opening_balance: Number(form.opening_balance) || 0,
+      opening_balance_date: (form as any).opening_balance_date || null,
     };
     const { error } = editing
       ? await supabase.from("parties").update(payload).eq("id", editing.id)
