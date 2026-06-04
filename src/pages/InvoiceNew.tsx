@@ -68,19 +68,38 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
   const purchasePrefix = "PUR-";
   const numberPrefix = isEstimate ? estimatePrefix : (settings?.invoice_prefix ?? "INV-");
 
-  // Generate next number for new docs
+  // Compute smallest missing positive integer for a given prefix from existing orders
+  const nextAvailableNumber = (prefix: string, orderType: "sale" | "estimate" | "purchase") => {
+    const used = new Set<number>();
+    for (const o of orders) {
+      if (o.order_type !== orderType) continue;
+      const num = o.invoice_number ?? "";
+      if (!num.startsWith(prefix)) continue;
+      const n = parseInt(num.slice(prefix.length), 10);
+      if (!isNaN(n) && n > 0) used.add(n);
+    }
+    let n = 1;
+    while (used.has(n)) n++;
+    return n;
+  };
+
+  // Generate next number for new docs — fills gaps from deleted/manually-entered numbers
   useEffect(() => {
     if (settings && !isEdit) {
       if (isEstimate) {
-        setInvoiceNumber(`${estimatePrefix}${String(nextEstimateNumber).padStart(4, "0")}`);
+        const n = nextAvailableNumber(estimatePrefix, "estimate");
+        setInvoiceNumber(`${estimatePrefix}${String(n).padStart(4, "0")}`);
       } else if (isPurchase) {
-        const purchaseCount = orders.filter(o => o.order_type === "purchase").length;
-        setInvoiceNumber(`${purchasePrefix}${String(purchaseCount + 1).padStart(4, "0")}`);
+        const n = nextAvailableNumber(purchasePrefix, "purchase");
+        setInvoiceNumber(`${purchasePrefix}${String(n).padStart(4, "0")}`);
       } else {
-        setInvoiceNumber(`${settings.invoice_prefix}${String(settings.next_invoice_number).padStart(4, "0")}`);
+        const prefix = settings.invoice_prefix ?? "INV-";
+        const n = nextAvailableNumber(prefix, "sale");
+        setInvoiceNumber(`${prefix}${String(n).padStart(4, "0")}`);
       }
     }
-  }, [settings, isEdit, isEstimate, isPurchase, estimatePrefix, nextEstimateNumber, orders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, isEdit, isEstimate, isPurchase, estimatePrefix, orders]);
 
   // Pre-fill party from ?partyId=... or ?walkin=Name (used when coming from a party page)
   useEffect(() => {
@@ -309,10 +328,20 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
     }
 
     if (!isEdit && settings) {
+      // Parse the just-saved number so settings tracks the highest used, not a blind +1
+      const parseNum = (s: string, prefix: string) => {
+        const n = parseInt((s ?? "").startsWith(prefix) ? s.slice(prefix.length) : s, 10);
+        return isNaN(n) ? 0 : n;
+      };
       if (isEstimate) {
-        await supabase.from("app_settings").update({ next_estimate_number: nextEstimateNumber + 1 }).eq("id", settings.id);
-      } else {
-        await supabase.from("app_settings").update({ next_invoice_number: settings.next_invoice_number + 1 }).eq("id", settings.id);
+        const justUsed = parseNum(invoiceNumber.trim(), estimatePrefix);
+        const newNext = Math.max(nextEstimateNumber, justUsed + 1);
+        await supabase.from("app_settings").update({ next_estimate_number: newNext }).eq("id", settings.id);
+      } else if (!isPurchase) {
+        const prefix = settings.invoice_prefix ?? "INV-";
+        const justUsed = parseNum(invoiceNumber.trim(), prefix);
+        const newNext = Math.max(settings.next_invoice_number, justUsed + 1);
+        await supabase.from("app_settings").update({ next_invoice_number: newNext }).eq("id", settings.id);
       }
     }
 
