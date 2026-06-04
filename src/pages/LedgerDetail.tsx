@@ -21,7 +21,9 @@ import autoTable from "jspdf-autotable";
 const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"];
 
 const fmt = (d: string) => {
+  if (!d) return "";
   const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = dt.toLocaleString("en-US", { month: "short" });
   const yy = String(dt.getFullYear()).slice(2);
@@ -55,7 +57,7 @@ async function recomputeOrderTotals(orderId: string, total: number) {
 type Entry = { date: string; ref: string; particulars: string; amount: number; orderId?: string; txnId?: string };
 
 function buildStatement(
-  party: { opening_balance: number; created_at: string } | undefined,
+  party: { opening_balance: number; created_at: string; opening_balance_date?: string | null } | undefined,
   partyOrders: Order[],
   partyTxns: Transaction[],
   kind: "invoice" | "estimate"
@@ -63,7 +65,8 @@ function buildStatement(
   const dbList: Entry[] = [];
   const crList: Entry[] = [];
   const ob = party ? Number(party.opening_balance) || 0 : 0;
-  const obDate = party?.created_at?.slice(0, 10) ?? "";
+  // Use user-chosen opening balance date if provided; otherwise leave blank so it doesn't render
+  const obDate = party?.opening_balance_date ? String(party.opening_balance_date).slice(0, 10) : "";
 
   // Opening balance — only on Invoice statement (estimates aren't a money owed concept)
   if (kind === "invoice") {
@@ -91,8 +94,9 @@ function buildStatement(
       });
     });
 
-  dbList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  crList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const ts = (d: string) => (d ? new Date(d).getTime() || 0 : 0);
+  dbList.sort((a, b) => ts(a.date) - ts(b.date));
+  crList.sort((a, b) => ts(a.date) - ts(b.date));
 
   const totalDebit = dbList.reduce((s, e) => s + e.amount, 0);
   const totalCredit = crList.reduce((s, e) => s + e.amount, 0);

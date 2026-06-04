@@ -141,10 +141,11 @@ export const PartyForm = () => {
       state: form.state || null,
       state_code: form.state_code || null,
       opening_balance: Number(form.opening_balance) || 0,
+      opening_balance_date: (form as any).opening_balance_date || null,
     };
     const { error } = editing
-      ? await supabase.from("parties").update(payload).eq("id", editing.id)
-      : await supabase.from("parties").insert(payload);
+      ? await (supabase.from("parties") as any).update(payload).eq("id", editing.id)
+      : await (supabase.from("parties") as any).insert(payload);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success(editing ? "Party updated" : "Party added");
@@ -237,9 +238,20 @@ export const PartyForm = () => {
           <Label>Address</Label>
           <Textarea value={form.address ?? ""} onChange={e => set("address", e.target.value)} rows={2} />
         </div>
-        <div>
-          <Label>Opening Balance (₹) — positive = they owe you</Label>
-          <Input type="number" inputMode="decimal" value={form.opening_balance ?? 0} onChange={e => set("opening_balance", Number(e.target.value))} className="h-12" />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Opening Balance (₹) — positive = they owe you</Label>
+            <Input type="number" inputMode="decimal" value={form.opening_balance ?? 0} onChange={e => set("opening_balance", Number(e.target.value))} className="h-12" />
+          </div>
+          <div>
+            <Label>Opening Balance Date (optional)</Label>
+            <Input
+              type="date"
+              value={(form as any).opening_balance_date ?? ""}
+              onChange={e => set("opening_balance_date" as any, (e.target.value || null) as any)}
+              className="h-12"
+            />
+          </div>
         </div>
       </Card>
 
