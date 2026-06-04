@@ -94,8 +94,9 @@ function buildStatement(
       });
     });
 
-  dbList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  crList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const ts = (d: string) => (d ? new Date(d).getTime() || 0 : 0);
+  dbList.sort((a, b) => ts(a.date) - ts(b.date));
+  crList.sort((a, b) => ts(a.date) - ts(b.date));
 
   const totalDebit = dbList.reduce((s, e) => s + e.amount, 0);
   const totalCredit = crList.reduce((s, e) => s + e.amount, 0);
