@@ -328,10 +328,20 @@ const InvoiceNew = ({ mode = "invoice" }: InvoiceNewProps) => {
     }
 
     if (!isEdit && settings) {
+      // Parse the just-saved number so settings tracks the highest used, not a blind +1
+      const parseNum = (s: string, prefix: string) => {
+        const n = parseInt((s ?? "").startsWith(prefix) ? s.slice(prefix.length) : s, 10);
+        return isNaN(n) ? 0 : n;
+      };
       if (isEstimate) {
-        await supabase.from("app_settings").update({ next_estimate_number: nextEstimateNumber + 1 }).eq("id", settings.id);
-      } else {
-        await supabase.from("app_settings").update({ next_invoice_number: settings.next_invoice_number + 1 }).eq("id", settings.id);
+        const justUsed = parseNum(invoiceNumber.trim(), estimatePrefix);
+        const newNext = Math.max(nextEstimateNumber, justUsed + 1);
+        await supabase.from("app_settings").update({ next_estimate_number: newNext }).eq("id", settings.id);
+      } else if (!isPurchase) {
+        const prefix = settings.invoice_prefix ?? "INV-";
+        const justUsed = parseNum(invoiceNumber.trim(), prefix);
+        const newNext = Math.max(settings.next_invoice_number, justUsed + 1);
+        await supabase.from("app_settings").update({ next_invoice_number: newNext }).eq("id", settings.id);
       }
     }
 
