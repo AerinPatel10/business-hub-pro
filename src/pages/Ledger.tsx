@@ -25,7 +25,7 @@ const Ledger = () => {
 
   const partySummaries = useMemo(() => {
     type S = {
-      id: string;          // real party id OR "walkin:<name>"
+      id: string;
       name: string;
       isWalkin: boolean;
       invoiceCount: number;
@@ -33,21 +33,24 @@ const Ledger = () => {
       invDue: number;
       estimateCount: number;
       estTotal: number;
-      openingBalance: number;
+      openingBalanceInvoice: number;
+      openingBalanceEstimate: number;
     };
     const map = new Map<string, S>();
 
-    // Seed with real parties — include opening_balance for both invoice & estimate views
+    // Seed with real parties — separate opening balances per account
     parties.forEach((p) => {
-      const ob = Number(p.opening_balance || 0);
+      const obInv = Number(p.opening_balance || 0);
+      const obEst = Number((p as any).opening_balance_estimate || 0);
       map.set(p.id, {
         id: p.id, name: p.name, isWalkin: false,
         invoiceCount: 0,
-        invTotal: ob > 0 ? ob : 0,
-        invDue: ob > 0 ? ob : 0,
+        invTotal: obInv > 0 ? obInv : 0,
+        invDue: obInv > 0 ? obInv : 0,
         estimateCount: 0,
-        estTotal: ob > 0 ? ob : 0,
-        openingBalance: ob,
+        estTotal: obEst > 0 ? obEst : 0,
+        openingBalanceInvoice: obInv,
+        openingBalanceEstimate: obEst,
       });
     });
 
@@ -65,11 +68,11 @@ const Ledger = () => {
         name = (o.party_name?.trim() || "Walk-in Customer");
         key = `walkin:${name.toLowerCase()}`;
         isWalkin = true;
-        if (!map.has(key)) {
+      if (!map.has(key)) {
           map.set(key, {
             id: key, name, isWalkin: true,
             invoiceCount: 0, invTotal: 0, invDue: 0, estimateCount: 0, estTotal: 0,
-            openingBalance: 0,
+            openingBalanceInvoice: 0, openingBalanceEstimate: 0,
           });
         }
       }
@@ -93,8 +96,8 @@ const Ledger = () => {
   const filtered = useMemo(() => {
     const term = q.toLowerCase().trim();
     let list = partySummaries;
-    if (tab === "invoice") list = list.filter((s) => s.invoiceCount > 0 || s.openingBalance !== 0);
-    else list = list.filter((s) => s.estimateCount > 0 || s.openingBalance !== 0);
+    if (tab === "invoice") list = list.filter((s) => s.invoiceCount > 0 || s.openingBalanceInvoice !== 0);
+    else list = list.filter((s) => s.estimateCount > 0 || s.openingBalanceEstimate !== 0);
     if (term) list = list.filter((s) => s.name.toLowerCase().includes(term));
     return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [partySummaries, tab, q]);
