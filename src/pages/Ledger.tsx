@@ -156,7 +156,8 @@ type Summary = {
   invDue: number;
   estimateCount: number;
   estTotal: number;
-  openingBalance: number;
+  openingBalanceInvoice: number;
+  openingBalanceEstimate: number;
 };
 
 const PartyCardList = ({
@@ -201,15 +202,15 @@ const PartyCardList = ({
               {kind === "invoice" ? (
                 <div className="text-xs text-muted-foreground">
                   {s.invoiceCount} {s.invoiceCount === 1 ? "bill" : "bills"} · Total {inr(s.invTotal)}
-                  {s.openingBalance !== 0 && (
-                    <span className="ml-1">· OB {inr(Math.abs(s.openingBalance))} {s.openingBalance > 0 ? "Dr" : "Cr"}</span>
+                  {s.openingBalanceInvoice !== 0 && (
+                    <span className="ml-1">· OB {inr(Math.abs(s.openingBalanceInvoice))} {s.openingBalanceInvoice > 0 ? "Dr" : "Cr"}</span>
                   )}
                 </div>
               ) : (
                 <div className="text-xs text-muted-foreground">
                   {s.estimateCount} {s.estimateCount === 1 ? "estimate" : "estimates"} · Total {inr(s.estTotal)}
-                  {s.openingBalance !== 0 && (
-                    <span className="ml-1">· OB {inr(Math.abs(s.openingBalance))}</span>
+                  {s.openingBalanceEstimate !== 0 && (
+                    <span className="ml-1">· OB {inr(Math.abs(s.openingBalanceEstimate))} {s.openingBalanceEstimate > 0 ? "Dr" : "Cr"}</span>
                   )}
                 </div>
               )}
