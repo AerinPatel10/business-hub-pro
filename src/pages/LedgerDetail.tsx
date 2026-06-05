@@ -57,22 +57,28 @@ async function recomputeOrderTotals(orderId: string, total: number) {
 type Entry = { date: string; ref: string; particulars: string; amount: number; orderId?: string; txnId?: string };
 
 function buildStatement(
-  party: { opening_balance: number; created_at: string; opening_balance_date?: string | null } | undefined,
+  party: {
+    opening_balance: number;
+    created_at: string;
+    opening_balance_date?: string | null;
+    opening_balance_estimate?: number | null;
+    opening_balance_estimate_date?: string | null;
+  } | undefined,
   partyOrders: Order[],
   partyTxns: Transaction[],
   kind: "invoice" | "estimate"
 ) {
   const dbList: Entry[] = [];
   const crList: Entry[] = [];
-  const ob = party ? Number(party.opening_balance) || 0 : 0;
-  // Use user-chosen opening balance date if provided; otherwise leave blank so it doesn't render
-  const obDate = party?.opening_balance_date ? String(party.opening_balance_date).slice(0, 10) : "";
+  // Each account has its own opening balance — never mix them
+  const ob = party
+    ? Number(kind === "invoice" ? party.opening_balance : (party.opening_balance_estimate ?? 0)) || 0
+    : 0;
+  const obDateRaw = kind === "invoice" ? party?.opening_balance_date : party?.opening_balance_estimate_date;
+  const obDate = obDateRaw ? String(obDateRaw).slice(0, 10) : "";
 
-  // Opening balance — only on Invoice statement (estimates aren't a money owed concept)
-  if (kind === "invoice") {
-    if (ob > 0) dbList.push({ date: obDate, ref: "—", particulars: "OPENING BALANCE", amount: ob });
-    else if (ob < 0) crList.push({ date: obDate, ref: "—", particulars: "OPENING BALANCE", amount: -ob });
-  }
+  if (ob > 0) dbList.push({ date: obDate, ref: "—", particulars: "OPENING BALANCE", amount: ob });
+  else if (ob < 0) crList.push({ date: obDate, ref: "—", particulars: "OPENING BALANCE", amount: -ob });
 
   // Documents → Debit side
   const label = kind === "invoice" ? "SALES A/C" : "ESTIMATE A/C";
@@ -341,9 +347,9 @@ const StatementView = ({ kind }: { kind: "invoice" | "estimate" }) => {
         </CardContent>
       </Card>
 
-      {kind === "invoice" && ob !== 0 && (
+      {ob !== 0 && (
         <p className="text-xs text-muted-foreground">
-          Opening balance: {inr(Math.abs(ob))} ({ob > 0 ? "party owes you" : "you owe party"})
+          Opening balance ({kind}): {inr(Math.abs(ob))} ({ob > 0 ? "party owes you" : "you owe party"})
         </p>
       )}
       <p className="text-xs text-muted-foreground">

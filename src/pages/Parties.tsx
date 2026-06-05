@@ -142,6 +142,8 @@ export const PartyForm = () => {
       state_code: form.state_code || null,
       opening_balance: Number(form.opening_balance) || 0,
       opening_balance_date: (form as any).opening_balance_date || null,
+      opening_balance_estimate: Number((form as any).opening_balance_estimate) || 0,
+      opening_balance_estimate_date: (form as any).opening_balance_estimate_date || null,
     };
     const { error } = editing
       ? await (supabase.from("parties") as any).update(payload).eq("id", editing.id)
@@ -238,19 +240,46 @@ export const PartyForm = () => {
           <Label>Address</Label>
           <Textarea value={form.address ?? ""} onChange={e => set("address", e.target.value)} rows={2} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Opening Balance (₹) — positive = they owe you</Label>
-            <Input type="number" inputMode="decimal" value={form.opening_balance ?? 0} onChange={e => set("opening_balance", Number(e.target.value))} className="h-12" />
+        <div className="pt-2 border-t border-border">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Invoice Account — Opening Balance</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Opening Balance (₹) — positive = they owe you</Label>
+              <Input type="number" inputMode="decimal" value={form.opening_balance ?? 0} onChange={e => set("opening_balance", Number(e.target.value))} className="h-12" />
+            </div>
+            <div>
+              <Label>Date (optional)</Label>
+              <Input
+                type="date"
+                value={(form as any).opening_balance_date ?? ""}
+                onChange={e => set("opening_balance_date" as any, (e.target.value || null) as any)}
+                className="h-12"
+              />
+            </div>
           </div>
-          <div>
-            <Label>Opening Balance Date (optional)</Label>
-            <Input
-              type="date"
-              value={(form as any).opening_balance_date ?? ""}
-              onChange={e => set("opening_balance_date" as any, (e.target.value || null) as any)}
-              className="h-12"
-            />
+        </div>
+        <div className="pt-2 border-t border-border">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Estimate Account — Opening Balance</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Opening Balance (₹) — positive = they owe you</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={(form as any).opening_balance_estimate ?? 0}
+                onChange={e => set("opening_balance_estimate" as any, Number(e.target.value) as any)}
+                className="h-12"
+              />
+            </div>
+            <div>
+              <Label>Date (optional)</Label>
+              <Input
+                type="date"
+                value={(form as any).opening_balance_estimate_date ?? ""}
+                onChange={e => set("opening_balance_estimate_date" as any, (e.target.value || null) as any)}
+                className="h-12"
+              />
+            </div>
           </div>
         </div>
       </Card>
