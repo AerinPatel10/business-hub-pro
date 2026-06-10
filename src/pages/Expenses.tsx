@@ -14,6 +14,22 @@ import { Combobox } from "@/components/Combobox";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+// We store the optional category as a prefix in the existing `notes` column,
+// formatted as `#cat:CategoryName#  rest of notes`, so no schema change is needed.
+const CAT_RE = /^#cat:([^#]+)#\s?/;
+const parseNotes = (raw: string | null | undefined): { tag: string; notes: string } => {
+  const s = String(raw ?? "");
+  const m = s.match(CAT_RE);
+  if (m) return { tag: m[1].trim(), notes: s.replace(CAT_RE, "") };
+  return { tag: "", notes: s };
+};
+const encodeNotes = (tag: string, notes: string): string | null => {
+  const t = tag.trim(); const n = (notes ?? "").trim();
+  if (!t && !n) return null;
+  if (!t) return n;
+  return `#cat:${t}# ${n}`.trim();
+};
+
 const Expenses = () => {
   const { expenses, refresh, profile } = useAppData();
   const [open, setOpen] = useState(false);
@@ -25,18 +41,23 @@ const Expenses = () => {
   const [notes, setNotes] = useState("");
   const [filterTag, setFilterTag] = useState<string>("all");
 
-  // All unique tags seen so far (for filter + autocomplete)
+  // Decorate expenses with parsed tag + clean notes for display/filtering.
+  const decorated = useMemo(
+    () => expenses.map(e => ({ ...e, ...parseNotes(e.notes) })),
+    [expenses]
+  );
+
   const allTags = useMemo(() => {
     const s = new Set<string>();
-    expenses.forEach((e: any) => { if (e.tag && String(e.tag).trim()) s.add(String(e.tag).trim()); });
+    decorated.forEach(e => { if (e.tag) s.add(e.tag); });
     return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [expenses]);
+  }, [decorated]);
 
   const visible = useMemo(() => {
-    if (filterTag === "all") return expenses;
-    if (filterTag === "__none__") return expenses.filter((e: any) => !e.tag);
-    return expenses.filter((e: any) => (e.tag || "") === filterTag);
-  }, [expenses, filterTag]);
+    if (filterTag === "all") return decorated;
+    if (filterTag === "__none__") return decorated.filter(e => !e.tag);
+    return decorated.filter(e => e.tag === filterTag);
+  }, [decorated, filterTag]);
 
   const total = useMemo(() => visible.reduce((s, e) => s + Number(e.amount || 0), 0), [visible]);
 
@@ -44,15 +65,13 @@ const Expenses = () => {
     const name = category.trim();
     if (!name) { toast.error("Enter expense name"); return; }
     if (amount <= 0) { toast.error("Enter amount"); return; }
-    const payload: any = {
+    const { error } = await supabase.from("expenses").insert({
       category: name,
       amount,
       expense_date: date,
       payment_method: method,
-      notes: notes || null,
-      tag: tag.trim() || null,
-    };
-    const { error } = await (supabase.from("expenses") as any).insert(payload);
+      notes: encodeNotes(tag, notes),
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Expense added");
     setOpen(false);
@@ -81,7 +100,7 @@ const Expenses = () => {
     doc.setFont("helvetica", "normal"); doc.setFontSize(9);
     doc.text(`Generated: ${fmtDate(new Date())}`, pageW / 2, 76, { align: "center" });
 
-    const rows = visible.map((e: any) => [
+    const rows = visible.map(e => [
       fmtDate(e.expense_date),
       e.category || "",
       e.tag || "-",
@@ -104,8 +123,8 @@ const Expenses = () => {
       margin: { left: 28, right: 28 },
     });
 
-    const fname = `expenses-${filterTag === "all" ? "all" : filterTag.replace(/\s+/g, "_")}-${Date.now()}.pdf`;
-    doc.save(fname);
+    const safe = filterTag === "all" ? "all" : filterTag.replace(/[^a-z0-9]+/gi, "_");
+    doc.save(`expenses-${safe}-${Date.now()}.pdf`);
   };
 
   return (
@@ -142,7 +161,7 @@ const Expenses = () => {
         <Card className="card-elevated p-8 text-center text-sm text-muted-foreground">No expenses to show.</Card>
       ) : (
         <div className="space-y-2">
-          {visible.map((e: any) => (
+          {visible.map(e => (
             <Card key={e.id} className="card-elevated p-3 flex items-center justify-between">
               <div>
                 <div className="font-semibold text-sm">{e.category}</div>
