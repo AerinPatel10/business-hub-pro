@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useAccountMode } from "@/contexts/AccountModeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,24 +15,34 @@ import { Combobox } from "@/components/Combobox";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// We store the optional category as a prefix in the existing `notes` column,
-// formatted as `#cat:CategoryName#  rest of notes`, so no schema change is needed.
+// We encode the optional category AND the account mode (invoice/estimate) as
+// prefixes in the existing `notes` column so no schema change is required.
+// Format: `#mode:invoice##cat:CategoryName# rest of notes`
+// Legacy rows (no #mode:...# prefix) are treated as "invoice" so they keep
+// showing in the Bill mode where they were originally entered.
+const MODE_RE = /^#mode:(invoice|estimate)#/;
 const CAT_RE = /^#cat:([^#]+)#\s?/;
-const parseNotes = (raw: string | null | undefined): { tag: string; notes: string } => {
-  const s = String(raw ?? "");
-  const m = s.match(CAT_RE);
-  if (m) return { tag: m[1].trim(), notes: s.replace(CAT_RE, "") };
-  return { tag: "", notes: s };
+type Mode = "invoice" | "estimate";
+type ParsedNotes = { mode: Mode; tag: string; notes: string };
+const parseNotes = (raw: string | null | undefined): ParsedNotes => {
+  let s = String(raw ?? "");
+  let mode: Mode = "invoice";
+  const mm = s.match(MODE_RE);
+  if (mm) { mode = mm[1] as Mode; s = s.replace(MODE_RE, ""); }
+  const cm = s.match(CAT_RE);
+  let tag = "";
+  if (cm) { tag = cm[1].trim(); s = s.replace(CAT_RE, ""); }
+  return { mode, tag, notes: s };
 };
-const encodeNotes = (tag: string, notes: string): string | null => {
+const encodeNotes = (mode: Mode, tag: string, notes: string): string => {
   const t = tag.trim(); const n = (notes ?? "").trim();
-  if (!t && !n) return null;
-  if (!t) return n;
-  return `#cat:${t}# ${n}`.trim();
+  const head = `#mode:${mode}#` + (t ? `#cat:${t}#` : "");
+  return n ? `${head} ${n}` : head;
 };
 
 const Expenses = () => {
   const { expenses, refresh, profile } = useAppData();
+  const { mode } = useAccountMode();
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState("");
   const [tag, setTag] = useState("");
@@ -49,15 +60,18 @@ const Expenses = () => {
 
   const allTags = useMemo(() => {
     const s = new Set<string>();
-    decorated.forEach(e => { if (e.tag) s.add(e.tag); });
+    decorated.filter(e => e.mode === mode).forEach(e => { if (e.tag) s.add(e.tag); });
     return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [decorated]);
+  }, [decorated, mode]);
+
+  // Scope by current account mode (Bill vs Without).
+  const scoped = useMemo(() => decorated.filter(e => e.mode === mode), [decorated, mode]);
 
   const visible = useMemo(() => {
-    if (filterTag === "all") return decorated;
-    if (filterTag === "__none__") return decorated.filter(e => !e.tag);
-    return decorated.filter(e => e.tag === filterTag);
-  }, [decorated, filterTag]);
+    if (filterTag === "all") return scoped;
+    if (filterTag === "__none__") return scoped.filter(e => !e.tag);
+    return scoped.filter(e => e.tag === filterTag);
+  }, [scoped, filterTag]);
 
   const total = useMemo(() => visible.reduce((s, e) => s + Number(e.amount || 0), 0), [visible]);
 
@@ -70,7 +84,7 @@ const Expenses = () => {
       amount,
       expense_date: date,
       payment_method: method,
-      notes: encodeNotes(tag, notes),
+      notes: encodeNotes(mode, tag, notes),
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Expense added");
