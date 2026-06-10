@@ -64,11 +64,14 @@ const Expenses = () => {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [decorated]);
 
+  // Scope by current account mode (Bill vs Without).
+  const scoped = useMemo(() => decorated.filter(e => e.mode === mode), [decorated, mode]);
+
   const visible = useMemo(() => {
-    if (filterTag === "all") return decorated;
-    if (filterTag === "__none__") return decorated.filter(e => !e.tag);
-    return decorated.filter(e => e.tag === filterTag);
-  }, [decorated, filterTag]);
+    if (filterTag === "all") return scoped;
+    if (filterTag === "__none__") return scoped.filter(e => !e.tag);
+    return scoped.filter(e => e.tag === filterTag);
+  }, [scoped, filterTag]);
 
   const total = useMemo(() => visible.reduce((s, e) => s + Number(e.amount || 0), 0), [visible]);
 
@@ -81,7 +84,7 @@ const Expenses = () => {
       amount,
       expense_date: date,
       payment_method: method,
-      notes: encodeNotes(tag, notes),
+      notes: encodeNotes(mode, tag, notes),
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Expense added");
