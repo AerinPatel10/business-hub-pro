@@ -60,9 +60,9 @@ const Expenses = () => {
 
   const allTags = useMemo(() => {
     const s = new Set<string>();
-    decorated.forEach(e => { if (e.tag) s.add(e.tag); });
+    decorated.filter(e => e.mode === mode).forEach(e => { if (e.tag) s.add(e.tag); });
     return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [decorated]);
+  }, [decorated, mode]);
 
   // Scope by current account mode (Bill vs Without).
   const scoped = useMemo(() => decorated.filter(e => e.mode === mode), [decorated, mode]);
